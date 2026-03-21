@@ -6,14 +6,14 @@
   <title>Welcome to QueryBoost</title>
   <style>
     :root {
-      --bg: #0d0d0f;
-      --surface: #18181c;
-      --border: #2e2e38;
-      --accent: #7c6af7;
-      --accent-glow: rgba(124,106,247,0.35);
+      --bg: #18191c;
+      --surface: #222328;
+      --border: #34353a;
+      --accent: #00e1aa;
+      --accent-glow: rgba(0, 225, 170, 0.35);
       --text: #f0f0f5;
-      --muted: #8888a0;
-      --faint: #55556a;
+      --muted: #9092a0;
+      --faint: #60626a;
       --green: #3ecf8e;
       --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
@@ -44,16 +44,16 @@
     }
 
     .hero-logo {
-      width: 72px;
-      height: 72px;
-      background: linear-gradient(135deg, var(--accent), #a78bfa);
-      border-radius: 20px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 34px;
-      box-shadow: 0 0 40px var(--accent-glow);
+      width: 80px;
+      height: 80px;
+      display: inline-block;
       margin-bottom: 24px;
+      filter: drop-shadow(0 0 30px var(--accent-glow));
+    }
+
+    .hero-logo img {
+      width: 100%;
+      height: 100%;
     }
 
     .hero h1 {
@@ -64,10 +64,7 @@
     }
 
     .hero h1 span {
-      background: linear-gradient(135deg, #a78bfa, #7c6af7);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: var(--accent);
     }
 
     .hero p {
@@ -288,162 +285,162 @@
 <body>
 <div class="page">
 
-  <!-- Hero -->
-  <div class="hero">
-    <div class="hero-logo">⚡</div>
-    <h1>Welcome to <span>QueryBoost</span></h1>
-    <p>You'll get smarter AI answers from this moment on — without changing how you type.</p>
-  </div>
+    <div class="hero">
+      <div class="hero-logo">
+        <img src="../icons/icon128.png" alt="QueryBoost Logo">
+      </div>
+      <h1>Welcome to <span>QueryBoost</span></h1>
+      <p>Your personal AI assistant for silently enhancing search queries on your favorite platforms.</p>
+    </div>
 
-  <!-- How it works -->
-  <div class="section">
-    <div class="section-label">How it works</div>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <h3>You type normally</h3>
-          <p>No templates, no pre-prompts, no copy-pasting. Just type into ChatGPT, Claude, Gemini, or Perplexity as you always have.</p>
+    <div class="section">
+      <div class="section-label">How it works</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>You type normally</h3>
+            <p>No templates, no pre-prompts, no copy-pasting. Just type into ChatGPT, Claude, Gemini, or Perplexity as you always have.</p>
+          </div>
         </div>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <h3>QueryBoost detects your intent</h3>
-          <p>Before your query is sent, QueryBoost classifies it — code, explanation, how-to, analysis, creative, and more — using a weighted signal engine.</p>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>QueryBoost detects your intent</h3>
+            <p>Before your query is sent, QueryBoost classifies it — code, explanation, how-to, analysis, creative, and more — using a weighted signal engine.</p>
+          </div>
         </div>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-body">
-          <h3>A structured wrapper is injected</h3>
-          <p>The query is silently rewritten with precise output instructions tailored to the intent. The AI never surfaces these instructions in its response.</p>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3>A structured wrapper is injected</h3>
+            <p>The query is silently rewritten with precise output instructions tailored to the intent. The AI never surfaces these instructions in its response.</p>
+          </div>
         </div>
-      </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <div class="step-body">
-          <h3>You get a noticeably better answer</h3>
-          <p>A small toast confirms the boost type. Click <strong>Preview</strong> to see what was added. That's it.</p>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h3>You get a noticeably better answer</h3>
+            <p>A small toast confirms the boost type. Click <strong>Preview</strong> to see what was added. That's it.</p>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <div class="divider"></div>
+    <div class="divider"></div>
 
-  <!-- Features -->
-  <div class="section">
-    <div class="section-label">What's included in v2.0</div>
-    <div class="feature-grid">
-      <div class="feature-card">
-        <span class="feature-icon">🎯</span>
-        <h3>10 Query Types</h3>
-        <p>Separate wrappers for code, how-to, data/SQL, creative, opinion, and more.</p>
-      </div>
-      <div class="feature-card">
-        <span class="feature-icon">🧑‍💻</span>
-        <h3>Domain Modes</h3>
-        <p>Developer, Student, Researcher, Writer — tune the AI's register to your context.</p>
-      </div>
-      <div class="feature-card">
-        <span class="feature-icon">🔀</span>
-        <h3>A/B Testing</h3>
-        <p>Two wrapper variants. See which one gets better feedback in the Stats tab.</p>
-      </div>
-      <div class="feature-card">
-        <span class="feature-icon">✏️</span>
-        <h3>Custom Wrappers</h3>
-        <p>Override any query type with your own template using <code>{{query}}</code>.</p>
-      </div>
-      <div class="feature-card">
-        <span class="feature-icon">👁️</span>
-        <h3>Transparency Mode</h3>
-        <p>See exactly what was injected into your prompt — highlighted in the toast preview.</p>
-      </div>
-      <div class="feature-card">
-        <span class="feature-icon">📊</span>
-        <h3>Feedback Loop</h3>
-        <p>Rate every boost with 👍/👎. Per-type approval rates tracked in Stats.</p>
+    <!-- Features -->
+    <div class="section">
+      <div class="section-label">What's included in v2.0</div>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <span class="feature-icon">🎯</span>
+          <h3>10 Query Types</h3>
+          <p>Separate wrappers for code, how-to, data/SQL, creative, opinion, and more.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">🧑‍💻</span>
+          <h3>Domain Modes</h3>
+          <p>Developer, Student, Researcher, Writer — tune the AI's register to your context.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">🔀</span>
+          <h3>A/B Testing</h3>
+          <p>Two wrapper variants. See which one gets better feedback in the Stats tab.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">✏️</span>
+          <h3>Custom Wrappers</h3>
+          <p>Override any query type with your own template using <code>{{query}}</code>.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">👁️</span>
+          <h3>Transparency Mode</h3>
+          <p>See exactly what was injected into your prompt — highlighted in the toast preview.</p>
+        </div>
+        <div class="feature-card">
+          <span class="feature-icon">📊</span>
+          <h3>Feedback Loop</h3>
+          <p>Rate every boost with 👍/👎. Per-type approval rates tracked in Stats.</p>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="divider"></div>
+    <div class="divider"></div>
 
-  <!-- Supported query types -->
-  <div class="section">
-    <div class="section-label">Detected query types</div>
-    <div class="types-grid">
-      <div class="type-pill">
-        <span class="label">Code / Debug</span>
-        <span class="example">"Fix this TypeError in my React component"</span>
-      </div>
-      <div class="type-pill">
-        <span class="label">Explain / Learn</span>
-        <span class="example">"What is the difference between TCP and UDP?"</span>
-      </div>
-      <div class="type-pill">
-        <span class="label">How-To / Steps</span>
-        <span class="example">"How do I deploy a Next.js app to Vercel?"</span>
-      </div>
-      <div class="type-pill">
-        <span class="label">Analyze / Review</span>
-        <span class="example">"Pros and cons of microservices vs monolith"</span>
-      </div>
-      <div class="type-pill">
-        <span class="label">Write / Draft</span>
-        <span class="example">"Write a cover letter for a senior dev role"</span>
-      </div>
-      <div class="type-pill">
-        <span class="label">Data / SQL</span>
-        <span class="example">"Write a query to find top 5 customers by revenue"</span>
-      </div>
-      <div class="type-pill">
-        <span class="label">Recommend / List</span>
-        <span class="example">"Best books on system design"</span>
-      </div>
-      <div class="type-pill">
-        <span class="label">Opinion / Decision</span>
-        <span class="example">"Should I learn Rust or Go in 2026?"</span>
-      </div>
-      <div class="type-pill">
-        <span class="label">Creative</span>
-        <span class="example">"Write a short story about a sentient compiler"</span>
-      </div>
-      <div class="type-pill">
-        <span class="label">Local / Travel</span>
-        <span class="example">"Best coffee shops in Lisbon for remote work"</span>
+    <!-- Supported query types -->
+    <div class="section">
+      <div class="section-label">Detected query types</div>
+      <div class="types-grid">
+        <div class="type-pill">
+          <span class="label">Code / Debug</span>
+          <span class="example">"Fix this TypeError in my React component"</span>
+        </div>
+        <div class="type-pill">
+          <span class="label">Explain / Learn</span>
+          <span class="example">"What is the difference between TCP and UDP?"</span>
+        </div>
+        <div class="type-pill">
+          <span class="label">How-To / Steps</span>
+          <span class="example">"How do I deploy a Next.js app to Vercel?"</span>
+        </div>
+        <div class="type-pill">
+          <span class="label">Analyze / Review</span>
+          <span class="example">"Pros and cons of microservices vs monolith"</span>
+        </div>
+        <div class="type-pill">
+          <span class="label">Write / Draft</span>
+          <span class="example">"Write a cover letter for a senior dev role"</span>
+        </div>
+        <div class="type-pill">
+          <span class="label">Data / SQL</span>
+          <span class="example">"Write a query to find top 5 customers by revenue"</span>
+        </div>
+        <div class="type-pill">
+          <span class="label">Recommend / List</span>
+          <span class="example">"Best books on system design"</span>
+        </div>
+        <div class="type-pill">
+          <span class="label">Opinion / Decision</span>
+          <span class="example">"Should I learn Rust or Go in 2026?"</span>
+        </div>
+        <div class="type-pill">
+          <span class="label">Creative</span>
+          <span class="example">"Write a short story about a sentient compiler"</span>
+        </div>
+        <div class="type-pill">
+          <span class="label">Local / Travel</span>
+          <span class="example">"Best coffee shops in Lisbon for remote work"</span>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="divider"></div>
+    <div class="divider"></div>
 
-  <!-- Privacy -->
-  <div class="section">
-    <div class="privacy-box">
-      <div class="icon">🔒</div>
-      <div>
-        <h3>100% private — nothing leaves your browser</h3>
-        <p>
-          QueryBoost reads your query text only to detect intent and inject the wrapper.
-          No data is sent to any server. No queries are logged or stored remotely.
-          Everything happens locally, on your device.
-          <br><br>
-          <a href="privacy.html" target="_blank">Read the full privacy policy →</a>
-        </p>
+    <!-- Privacy -->
+    <div class="section">
+      <div class="privacy-box">
+        <div class="icon">🔒</div>
+        <div>
+          <h3>100% private — nothing leaves your browser</h3>
+          <p>
+            QueryBoost reads your query text only to detect intent and inject the wrapper.
+            No data is sent to any server. No queries are logged or stored remotely.
+            Everything happens locally, on your device.
+            <br><br>
+            <a href="privacy.html" target="_blank">Read the full privacy policy →</a>
+          </p>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- CTA -->
-  <div class="cta">
-    <p>Go to any supported platform and start asking questions — QueryBoost is already running.</p>
-    <a class="cta-btn" href="https://chatgpt.com" target="_blank" rel="noopener noreferrer">
-      ⚡ Open ChatGPT and try it
-    </a>
-  </div>
+    <!-- CTA -->
+    <div class="cta">
+      <p>Go to any supported platform and start asking questions — QueryBoost is already running.</p>
+      <a class="cta-btn" href="https://chatgpt.com" target="_blank" rel="noopener noreferrer">
+        ⚡ Open ChatGPT and try it
+      </a>
+    </div>
 
 </div>
 </body>

@@ -1,252 +1,130 @@
 """
-QueryBoost icon generator.
-Draws the ⚡ bolt logo on a deep-purple rounded-square background.
-Outputs: icon16.png, icon32.png, icon48.png, icon128.png
+QueryBoost — Industry Standard Icon Generator v5
+Design: Amplified Search. A modern, geometric logo featuring a stylized capital
+"Q" formed by three distinct, interlocking chevrons. The arrows transition
+through a vibrant cyan-to-emerald gradient, symbolizing enhancement and growth.
+Outputs: icon16.png  icon32.png  icon48.png  icon128.png  icon128_store.png
 """
 
-import math, os
-from PIL import Image, ImageDraw, ImageFont
+import os
+import math
+from PIL import Image, ImageDraw, ImageFilter
 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
-SIZES = [16, 32, 48, 128]
+SIZES   = [16, 32, 48, 128]
 
-# ── Brand colours ────────────────────────────────────────────
-BG_TOP    = (80,  54, 220)   # #5036DC  – deep violet
-BG_BOT    = (138, 92, 246)   # #8A5CF6  – bright purple
-BOLT_TOP  = (255, 240, 100)  # warm yellow
-BOLT_BOT  = (255, 200,  40)  # amber
-SHADOW    = (30,  20,  80, 120)  # translucent dark
+# ── v5 Palette: Amplified Search ─────────────────────────────────────────────
+BG_COLOR      = (24, 25, 28)    # Very dark, slightly cool gray
+CHEVRON_CYAN  = (0, 255, 200)
+CHEVRON_MID   = (0, 225, 170)
+CHEVRON_EMRLD = (0, 200, 140)
+GRADIENT_STEPS = [CHEVRON_CYAN, CHEVRON_MID, CHEVRON_EMRLD]
+SHADOW_COLOR  = (10, 10, 12, 180)
+HIGHLIGHT_COLOR = (255, 255, 255, 200)
 
-def lerp_colour(a, b, t):
-    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(len(a)))
+# ── Geometry ─────────────────────────────────────────────────────────────────
+# Defines the three chevrons that form the stylized 'Q'
+# Points are for a 128x128 canvas and will be scaled down.
+CHEVRON_SHAPES = [
+    [(30, 20), (64, 54), (98, 20), (80, 20), (64, 36), (48, 20)], # Top
+    [(30, 45), (64, 79), (98, 45), (80, 45), (64, 61), (48, 45)], # Middle
+    [(30, 70), (64, 104), (98, 70), (80, 70), (64, 86), (48, 70)], # Bottom
+]
+# Defines the tail of the 'Q'
+Q_TAIL_SHAPE = [(82, 82), (102, 102), (102, 88), (90, 82)]
 
-def draw_rounded_rect_gradient(draw, size, radius_frac=0.22):
-    """Fill the whole canvas with a top→bottom gradient, clipped to a rounded square."""
-    s = size
-    r = max(2, int(s * radius_frac))
-    # Build mask
-    mask = Image.new("L", (s, s), 0)
-    md = ImageDraw.Draw(mask)
-    md.rounded_rectangle([0, 0, s - 1, s - 1], radius=r, fill=255)
+def _scale_shape(shape, size, offset=(0,0)):
+    """Scales a shape from the 128x128 reference to the target size."""
+    scale = size / 128.0
+    ox, oy = offset
+    return [(p[0] * scale + ox, p[1] * scale + oy) for p in shape]
 
-    # Gradient layer
-    grad = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(grad)
-    for y in range(s):
-        t = y / (s - 1)
-        c = lerp_colour(BG_TOP, BG_BOT, t) + (255,)
-        gd.line([(0, y), (s - 1, y)], fill=c)
+def _rounded_mask(size, r_frac):
+    """Creates a rounded corner mask for the icon."""
+    r = max(2, int(size * r_frac))
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, size, size), radius=r, fill=255)
+    return mask
 
-    result = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    result.paste(grad, mask=mask)
-    return result
+# ── Layer Generators ─────────────────────────────────────────────────────────
 
-def bolt_points(size):
-    """
-    Returns the polygon points for a lightning bolt centred in `size`×`size`.
-    The bolt is drawn as a classic 7-point zigzag shape.
-    """
-    s = size
-    # Proportional bolt geometry (designed at 128, scaled down)
-    REF = 128.0
+def make_base(size, r_frac):
+    """Creates the dark, rounded-square base layer."""
+    base = Image.new("RGBA", (size, size), BG_COLOR)
+    mask = _rounded_mask(size, r_frac)
+    out = Image.new("RGBA", (size, size), (0,0,0,0))
+    out.paste(base, mask=mask)
+    return out
 
-    # Raw points at REF size (origin = top-left of canvas)
-    raw = [
-        (72, 10),   # top-right of upper arm
-        (44, 58),   # inner top of crossbar
-        (62, 58),   # inner bottom of crossbar  ← right of centre notch
-        (38, 118),  # bottom tip
-        (56, 70),   # inner bottom
-        (38, 70),   # left of centre notch
-        (62, 10),   # top-left of upper arm
-    ]
+def add_chevrons(draw, size):
+    """Draws the chevrons with shadows and highlights."""
+    shadow_offset = size * 0.03
+    
+    # Draw chevrons from top to bottom to ensure correct overlap
+    for i, shape_pts in enumerate(CHEVRON_SHAPES):
+        color = GRADIENT_STEPS[i]
+        
+        # Shadow
+        shadow_shape = _scale_shape(shape_pts, size, (shadow_offset, shadow_offset))
+        draw.polygon(shadow_shape, fill=SHADOW_COLOR)
+        
+        # Main shape
+        main_shape = _scale_shape(shape_pts, size)
+        draw.polygon(main_shape, fill=color)
 
-    scale = s / REF
-    cx_raw = sum(p[0] for p in raw) / len(raw)
-    cy_raw = sum(p[1] for p in raw) / len(raw)
-    cx_target = s / 2
-    cy_target = s / 2 + s * 0.03  # nudge very slightly down for visual balance
+    # Draw the Q's tail, which is part of the last chevron's color
+    tail_color = GRADIENT_STEPS[-1]
+    tail_shadow = _scale_shape(Q_TAIL_SHAPE, size, (shadow_offset, shadow_offset))
+    draw.polygon(tail_shadow, fill=SHADOW_COLOR)
+    
+    main_tail = _scale_shape(Q_TAIL_SHAPE, size)
+    draw.polygon(main_tail, fill=tail_color)
 
-    return [
-        (cx_target + (p[0] - cx_raw) * scale,
-         cy_target + (p[1] - cy_raw) * scale)
-        for p in raw
-    ]
+def add_highlight_sheen(draw, size):
+    """Adds a subtle highlight to the top-left of the shapes."""
+    if size < 32: return
+    
+    # Highlight on the top chevron
+    highlight_line_width = max(1, int(size * 0.02))
+    draw.line([
+        _scale_shape([CHEVRON_SHAPES[0][0]], size)[0],
+        _scale_shape([CHEVRON_SHAPES[0][1]], size)[0],
+        _scale_shape([CHEVRON_SHAPES[0][2]], size)[0]
+    ], fill=HIGHLIGHT_COLOR, width=highlight_line_width, joint="curve")
 
-def draw_bolt_gradient(img, size):
-    """Draw the bolt with a top→bottom gradient using scanline fill over a mask."""
-    # 1. Create a mask of the bolt shape at 2× for anti-alias, then downscale
-    scale = 4
-    big = size * scale
-    mask = Image.new("L", (big, big), 0)
-    md = ImageDraw.Draw(mask)
-
-    REF = 128.0
-    raw = [
-        (72, 10), (44, 58), (62, 58),
-        (38, 118), (56, 70), (38, 70), (62, 10),
-    ]
-    sc = big / REF
-    cx_raw = sum(p[0] for p in raw) / len(raw)
-    cy_raw = sum(p[1] for p in raw) / len(raw)
-    cx_t = big / 2
-    cy_t = big / 2 + big * 0.03
-    pts_big = [
-        (cx_t + (p[0] - cx_raw) * sc, cy_t + (p[1] - cy_raw) * sc)
-        for p in raw
-    ]
-    md.polygon(pts_big, fill=255)
-    mask = mask.resize((size, size), Image.LANCZOS)
-
-    # 2. Gradient fill layer
-    grad = Image.new("RGBA", (size, size))
-    gd = ImageDraw.Draw(grad)
-    for y in range(size):
-        t = y / max(size - 1, 1)
-        c = lerp_colour(BOLT_TOP, BOLT_BOT, t) + (255,)
-        gd.line([(0, y), (size - 1, y)], fill=c)
-
-    # 3. Composite bolt onto base image
-    bolt_layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    bolt_layer.paste(grad, mask=mask)
-    img.alpha_composite(bolt_layer)
-
-def draw_bolt_shadow(img, size):
-    """Subtle drop shadow under the bolt — only for larger sizes."""
-    if size < 32:
-        return
-    offset = max(1, size // 40)
-    scale = 4
-    big = size * scale
-    mask = Image.new("L", (big, big), 0)
-    md = ImageDraw.Draw(mask)
-
-    REF = 128.0
-    raw = [
-        (72, 10), (44, 58), (62, 58),
-        (38, 118), (56, 70), (38, 70), (62, 10),
-    ]
-    sc = big / REF
-    cx_raw = sum(p[0] for p in raw) / len(raw)
-    cy_raw = sum(p[1] for p in raw) / len(raw)
-    cx_t = big / 2 + offset * scale
-    cy_t = big / 2 + big * 0.03 + offset * scale
-    pts_big = [
-        (cx_t + (p[0] - cx_raw) * sc, cy_t + (p[1] - cy_raw) * sc)
-        for p in raw
-    ]
-    md.polygon(pts_big, fill=180)
-    mask = mask.resize((size, size), Image.LANCZOS)
-
-    shadow_layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    sd = ImageDraw.Draw(shadow_layer)
-    shadow_layer.paste(Image.new("RGBA", (size, size), (20, 10, 60, 100)), mask=mask)
-    # Composite shadow *under* everything: insert before bolt
-    # We do it by compositing onto a copy and returning
-    base = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    base.alpha_composite(shadow_layer)
-    base.alpha_composite(img)
-    img.paste(base)
+# ── Main Assembly ────────────────────────────────────────────────────────────
 
 def make_icon(size):
-    # Step 1: gradient rounded-square background
-    img = draw_rounded_rect_gradient(None, size)  # returns RGBA image
-
-    # Step 2: shadow (only visible on 32+)
-    if size >= 32:
-        draw_bolt_shadow(img, size)
-
-    # Step 3: bolt on top
-    draw_bolt_gradient(img, size)
-
+    r_frac = 0.20 if size >= 48 else (0.25 if size == 32 else 0.30)
+    
+    img = make_base(size, r_frac)
+    
+    # Use a temporary canvas for drawing the main artwork to handle transparency
+    artwork_canvas = Image.new("RGBA", img.size, (0,0,0,0))
+    draw = ImageDraw.Draw(artwork_canvas)
+    
+    add_chevrons(draw, size)
+    add_highlight_sheen(draw, size)
+    
+    # Composite the artwork onto the base
+    img.alpha_composite(artwork_canvas)
+    
     return img
 
-# ── Fix: draw_rounded_rect_gradient returns image, not draws on canvas ───────
-# Patch it so the rest of the pipeline works correctly.
+if __name__ == "__main__":
+    if not os.path.exists(OUT_DIR):
+        os.makedirs(OUT_DIR)
+        
+    for size in SIZES:
+        icon = make_icon(size)
+        path = os.path.join(OUT_DIR, f"icon{size}.png")
+        icon.save(path, "PNG", optimize=True)
+        print(f"  ✓  icon{size}.png  ({size}×{size})")
 
-def make_icon_v2(size):
-    # Background
-    bg = draw_rounded_rect_gradient(None, size)
+    # Generate a dedicated store icon with a slightly smaller corner radius
+    store_icon = make_icon(128)
+    store_path = os.path.join(OUT_DIR, "icon128_store.png")
+    store_icon.save(store_path, "PNG", optimize=True)
+    print(f"  ✓  icon128_store.png  (128×128)")
 
-    # Compose on white checker to preview, but save as RGBA
-    # Shadow pass (separate layer blended in)
-    if size >= 32:
-        offset = max(1, size // 40)
-        scale_f = 4
-        big = size * scale_f
-        mask_s = Image.new("L", (big, big), 0)
-        md_s = ImageDraw.Draw(mask_s)
-        REF = 128.0
-        raw = [
-            (72, 10), (44, 58), (62, 58),
-            (38, 118), (56, 70), (38, 70), (62, 10),
-        ]
-        sc = big / REF
-        cx_raw = sum(p[0] for p in raw) / len(raw)
-        cy_raw = sum(p[1] for p in raw) / len(raw)
-        cx_t = big / 2 + offset * scale_f
-        cy_t = big / 2 + big * 0.03 + offset * scale_f
-        pts_big = [
-            (cx_t + (p[0] - cx_raw) * sc, cy_t + (p[1] - cy_raw) * sc)
-            for p in raw
-        ]
-        md_s.polygon(pts_big, fill=200)
-        mask_s = mask_s.resize((size, size), Image.LANCZOS)
-        shadow_layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-        shadow_layer.paste(Image.new("RGBA", (size, size), (15, 5, 50, 110)), mask=mask_s)
-        bg.alpha_composite(shadow_layer)
-
-    # Bolt pass
-    scale_f = 4
-    big = size * scale_f
-    mask_b = Image.new("L", (big, big), 0)
-    md_b = ImageDraw.Draw(mask_b)
-    REF = 128.0
-    raw = [
-        (72, 10), (44, 58), (62, 58),
-        (38, 118), (56, 70), (38, 70), (62, 10),
-    ]
-    sc = big / REF
-    cx_raw = sum(p[0] for p in raw) / len(raw)
-    cy_raw = sum(p[1] for p in raw) / len(raw)
-    cx_t = big / 2
-    cy_t = big / 2 + big * 0.03
-    pts_big = [
-        (cx_t + (p[0] - cx_raw) * sc, cy_t + (p[1] - cy_raw) * sc)
-        for p in raw
-    ]
-    md_b.polygon(pts_big, fill=255)
-    mask_b = mask_b.resize((size, size), Image.LANCZOS)
-
-    grad = Image.new("RGBA", (size, size))
-    gd = ImageDraw.Draw(grad)
-    for y in range(size):
-        t = y / max(size - 1, 1)
-        c = lerp_colour(BOLT_TOP, BOLT_BOT, t) + (255,)
-        gd.line([(0, y), (size - 1, y)], fill=c)
-
-    bolt_layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    bolt_layer.paste(grad, mask=mask_b)
-    bg.alpha_composite(bolt_layer)
-
-    # Add a subtle inner highlight ring at the top (only 48+)
-    if size >= 48:
-        r = max(2, int(size * 0.22))
-        highlight = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-        hd = ImageDraw.Draw(highlight)
-        hd.rounded_rectangle(
-            [1, 1, size - 2, size // 2],
-            radius=r,
-            fill=(255, 255, 255, 18),
-        )
-        bg.alpha_composite(highlight)
-
-    return bg
-
-for size in SIZES:
-    icon = make_icon_v2(size)
-    path = os.path.join(OUT_DIR, f"icon{size}.png")
-    icon.save(path, "PNG", optimize=True)
-    print(f"  ✓  icon{size}.png  ({size}×{size})")
-
-print("\nAll icons generated.")
+    print("\nAll icons generated with v5 'Amplified Search' design.")
