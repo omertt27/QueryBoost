@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QueryBoost</title>
+  <link rel="stylesheet" href="src/styles.css" />
+  <style>
+    html, body {
+      width: 320px;
+      overflow-x: hidden;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="qb-header">
+    <div class="qb-logo" aria-hidden="true">⚡</div>
+    <div class="qb-header-text">
+      <div class="qb-title">QueryBoost</div>
+      <div class="qb-tagline">Silent AI query enhancement</div>
+    </div>
+    <!-- Tab nav pills -->
+    <nav class="qb-tabs" aria-label="Settings sections">
+      <button class="qb-tab qb-tab-active" data-tab="main">Main</button>
+      <button class="qb-tab" data-tab="settings">Settings</button>
+      <button class="qb-tab" data-tab="custom">Custom</button>
+      <button class="qb-tab" data-tab="stats">Stats</button>
+    </nav>
+  </header>
+
+  <!-- ═══ TAB: MAIN ═══ -->
+  <main class="qb-body qb-panel" id="panel-main">
+
+    <!-- On/Off Toggle -->
+    <div class="qb-toggle-row" id="qb-toggle-row">
+      <div class="qb-toggle-label">
+        <span class="qb-toggle-label-main">Enhancement</span>
+        <span class="qb-toggle-label-sub" id="qb-toggle-status">Loading…</span>
+      </div>
+      <label class="qb-toggle" aria-label="Toggle query enhancement">
+        <input type="checkbox" id="qb-toggle-input" />
+        <span class="qb-toggle-track"></span>
+      </label>
+    </div>
+
+    <!-- Status Cards -->
+    <div class="qb-status-grid" id="qb-status-grid">
+      <div class="qb-card" id="qb-platform-card">
+        <span class="qb-card-label">Platform</span>
+        <span class="qb-card-value" id="qb-platform-value">
+          <span class="dot"></span>
+          <span id="qb-platform-name">Detecting…</span>
+        </span>
+      </div>
+      <div class="qb-card">
+        <span class="qb-card-label">Last Boost</span>
+        <span class="qb-card-value">
+          <span id="qb-last-type">No boosts yet</span>
+        </span>
+      </div>
+      <div class="qb-card qb-card-wide">
+        <span class="qb-card-label">Lifetime Boosts</span>
+        <span class="qb-card-value">
+          <span class="qb-count-num" id="qb-boost-count">0</span>
+          <span class="qb-count-label">queries enhanced</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Domain Mode Card -->
+    <div class="qb-card qb-card-wide">
+      <span class="qb-card-label">Domain Mode</span>
+      <span class="qb-card-value" style="flex-direction:column;align-items:flex-start;gap:6px;">
+        <span style="font-size:11px;color:#8888a0;" id="qb-mode-desc">Tunes the AI's register to your context</span>
+        <select class="qb-select" id="qb-domain-select" aria-label="Domain mode">
+          <option value="general">🌐 General</option>
+          <option value="developer">💻 Developer</option>
+          <option value="student">🎓 Student</option>
+          <option value="researcher">🔬 Researcher</option>
+          <option value="writer">✍️ Writer</option>
+        </select>
+      </span>
+    </div>
+
+    <!-- How it works blurb -->
+    <div class="qb-card" style="flex-direction:row;align-items:flex-start;gap:8px;min-height:unset;">
+      <span style="font-size:15px;margin-top:1px;flex-shrink:0;">🔍</span>
+      <span style="font-size:11px;color:#8888a0;line-height:1.55;">
+        Wraps queries with smart structure before sending. Click ⚡ in toast to preview. Use <strong style="color:#a78bfa;">Settings</strong> for transparency &amp; A/B options.
+      </span>
+    </div>
+
+  </main>
+
+  <!-- ═══ TAB: SETTINGS ═══ -->
+  <main class="qb-body qb-panel qb-panel-hidden" id="panel-settings">
+
+    <!-- Transparency Toggle -->
+    <div class="qb-toggle-row">
+      <div class="qb-toggle-label">
+        <span class="qb-toggle-label-main">Wrapper Transparency</span>
+        <span class="qb-toggle-label-sub">Show injected wrapper text in toast preview</span>
+      </div>
+      <label class="qb-toggle" aria-label="Toggle wrapper transparency">
+        <input type="checkbox" id="qb-transparency-input" />
+        <span class="qb-toggle-track"></span>
+      </label>
+    </div>
+
+    <!-- A/B Variant Info -->
+    <div class="qb-card qb-card-wide">
+      <span class="qb-card-label">A/B Test Variant</span>
+      <span class="qb-card-value" style="gap:8px;flex-wrap:wrap;">
+        <span class="qb-ab-pill" id="qb-ab-variant-pill">–</span>
+        <span style="font-size:11px;color:#8888a0;">Randomly assigned at install. Check Stats tab to compare variants.</span>
+      </span>
+    </div>
+
+    <!-- Platform tuning summary -->
+    <div class="qb-card qb-card-wide">
+      <span class="qb-card-label">Platform Tuning</span>
+      <div class="qb-platform-tuning-list">
+        <div class="qb-pt-row"><span class="qb-pt-name">🟠 Claude</span><span class="qb-pt-desc">Flowing prose, section headers</span></div>
+        <div class="qb-pt-row"><span class="qb-pt-name">🟢 ChatGPT</span><span class="qb-pt-desc">Clean markdown</span></div>
+        <div class="qb-pt-row"><span class="qb-pt-name">🔵 Gemini</span><span class="qb-pt-desc">Concise, factual, bullets</span></div>
+        <div class="qb-pt-row"><span class="qb-pt-name">🟣 Perplexity</span><span class="qb-pt-desc">Scannable, cited</span></div>
+      </div>
+    </div>
+
+    <!-- Data management -->
+    <div class="qb-card qb-card-wide" style="gap:8px;">
+      <span class="qb-card-label">Data Management</span>
+      <button class="qb-btn qb-btn-danger" id="qb-reset-feedback">🗑 Clear feedback &amp; A/B data</button>
+    </div>
+
+  </main>
+
+  <!-- ═══ TAB: CUSTOM WRAPPERS ═══ -->
+  <main class="qb-body qb-panel qb-panel-hidden" id="panel-custom">
+
+    <div class="qb-custom-intro">
+      Override the built-in wrapper for any query type. Use <code>{{query}}</code> as the original query placeholder. Leave blank to use the default.
+    </div>
+
+    <div class="qb-custom-type-picker">
+      <label class="qb-card-label" for="qb-custom-type-select">Query type</label>
+      <select class="qb-select" id="qb-custom-type-select">
+        <option value="code">Code / Debug</option>
+        <option value="explain">Explain / Learn</option>
+        <option value="write">Write / Draft</option>
+        <option value="analyze">Analyze / Review</option>
+        <option value="data">Data / SQL</option>
+        <option value="howto">How-To / Steps</option>
+        <option value="local">Local / Travel</option>
+        <option value="recommend">Recommend / List</option>
+        <option value="opinion">Opinion / Decision</option>
+        <option value="creative">Creative</option>
+        <option value="default">General (default)</option>
+      </select>
+    </div>
+
+    <textarea
+      class="qb-custom-textarea"
+      id="qb-custom-textarea"
+      placeholder="{{query}}&#10;&#10;---&#10;Your custom instructions here…"
+      rows="7"
+      spellcheck="false"
+    ></textarea>
+
+    <div class="qb-custom-actions">
+      <button class="qb-btn qb-btn-primary" id="qb-custom-save">Save</button>
+      <button class="qb-btn qb-btn-ghost" id="qb-custom-clear">Reset to default</button>
+    </div>
+
+    <div class="qb-custom-status" id="qb-custom-status"></div>
+
+    <div id="qb-custom-list-section">
+      <div class="qb-card-label" style="margin-top:10px;margin-bottom:5px;">Active custom wrappers</div>
+      <ul class="qb-custom-list" id="qb-custom-list">
+        <li class="qb-custom-empty">None yet.</li>
+      </ul>
+    </div>
+
+  </main>
+
+  <!-- ═══ TAB: STATS ═══ -->
+  <main class="qb-body qb-panel qb-panel-hidden" id="panel-stats">
+
+    <div class="qb-card-label" style="margin-bottom:8px;">A/B Wrapper Performance</div>
+    <div class="qb-ab-stats-grid">
+      <div class="qb-ab-col">
+        <div class="qb-ab-header">Variant A</div>
+        <div class="qb-ab-row"><span>Sent</span><span id="qb-ab-a-sent">–</span></div>
+        <div class="qb-ab-row"><span>👍</span><span id="qb-ab-a-up">–</span></div>
+        <div class="qb-ab-row"><span>👎</span><span id="qb-ab-a-down">–</span></div>
+        <div class="qb-ab-row qb-ab-rate"><span>👍 rate</span><span id="qb-ab-a-rate">–</span></div>
+      </div>
+      <div class="qb-ab-divider"></div>
+      <div class="qb-ab-col">
+        <div class="qb-ab-header">Variant B</div>
+        <div class="qb-ab-row"><span>Sent</span><span id="qb-ab-b-sent">–</span></div>
+        <div class="qb-ab-row"><span>👍</span><span id="qb-ab-b-up">–</span></div>
+        <div class="qb-ab-row"><span>👎</span><span id="qb-ab-b-down">–</span></div>
+        <div class="qb-ab-row qb-ab-rate"><span>👍 rate</span><span id="qb-ab-b-rate">–</span></div>
+      </div>
+    </div>
+
+    <div class="qb-card-label" style="margin-top:14px;margin-bottom:8px;">Feedback by Query Type</div>
+    <div class="qb-type-stats" id="qb-type-stats">
+      <span style="color:#55556a;font-size:11px;">No feedback yet.</span>
+    </div>
+
+    <div class="qb-card-label" style="margin-top:14px;margin-bottom:8px;">Recent Feedback</div>
+    <ul class="qb-feedback-log" id="qb-feedback-log">
+      <li class="qb-feedback-empty">No feedback recorded yet.</li>
+    </ul>
+
+  </main>
+
+  <div class="qb-divider"></div>
+
+  <!-- Footer -->
+  <footer class="qb-footer">
+    <a href="https://github.com/" target="_blank" rel="noopener noreferrer" class="qb-footer-link">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+          0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+          -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+          .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+          -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09
+          2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82
+          2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01
+          2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+      GitHub
+    </a>
+    <span class="qb-version">v2.0.0</span>
+  </footer>
+
+  <script src="src/popup.js"></script>
+</body>
+</html>
