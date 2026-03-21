@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "QueryBoost",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Silently enhances your AI queries for dramatically better responses — zero setup, zero interruptions.",
   "permissions": [
     "activeTab",
