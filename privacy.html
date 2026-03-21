@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — QueryBoost</title>
+  <style>
+    :root {
+      --bg: #0d0d0f;
+      --surface: #18181c;
+      --border: #2e2e38;
+      --accent: #7c6af7;
+      --text: #f0f0f5;
+      --muted: #8888a0;
+      --faint: #55556a;
+      --green: #3ecf8e;
+      --red: #f25f5c;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.7;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 56px 32px 80px;
+    }
+
+    /* Back link */
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      margin-bottom: 40px;
+      transition: color 0.15s;
+    }
+    .back:hover { color: var(--accent); }
+
+    /* Header */
+    .page-header {
+      margin-bottom: 40px;
+    }
+
+    .page-header .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--green);
+      background: rgba(62,207,142,0.1);
+      border: 1px solid rgba(62,207,142,0.25);
+      border-radius: 20px;
+      padding: 3px 10px;
+      margin-bottom: 14px;
+    }
+
+    .page-header h1 {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .page-header p {
+      font-size: 15px;
+      color: var(--muted);
+    }
+
+    .meta {
+      font-size: 12px;
+      color: var(--faint);
+      margin-top: 6px;
+    }
+
+    /* Summary box */
+    .summary {
+      background: rgba(62,207,142,0.06);
+      border: 1px solid rgba(62,207,142,0.2);
+      border-radius: 12px;
+      padding: 20px 22px;
+      margin: 32px 0;
+    }
+
+    .summary h2 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--green);
+      margin-bottom: 12px;
+    }
+
+    .summary ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .summary li {
+      display: flex;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .summary li .check { color: var(--green); flex-shrink: 0; }
+    .summary li .cross { color: var(--red);   flex-shrink: 0; }
+
+    /* Sections */
+    .section {
+      margin-bottom: 36px;
+    }
+
+    .section h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section p {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .section ul {
+      list-style: none;
+      padding: 0;
+      margin: 10px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .section li {
+      font-size: 14px;
+      color: var(--muted);
+      padding-left: 16px;
+      position: relative;
+    }
+
+    .section li::before {
+      content: '–';
+      position: absolute;
+      left: 0;
+      color: var(--faint);
+    }
+
+    .section li strong {
+      color: var(--text);
+    }
+
+    /* Data table */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 14px 0;
+    }
+
+    .data-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--faint);
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .data-table td {
+      padding: 8px 12px;
+      color: var(--muted);
+      border-bottom: 1px solid rgba(46,46,56,0.5);
+      vertical-align: top;
+    }
+
+    .data-table td:first-child {
+      color: var(--text);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--faint);
+    }
+
+    .tag-local {
+      background: rgba(62,207,142,0.08);
+      border-color: rgba(62,207,142,0.2);
+      color: var(--green);
+    }
+
+    .tag-sync {
+      background: rgba(124,106,247,0.08);
+      border-color: rgba(124,106,247,0.2);
+      color: #a78bfa;
+    }
+
+    /* Contact */
+    .contact-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 22px;
+      margin-top: 8px;
+    }
+
+    .contact-box p {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .contact-box a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .contact-box a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <a class="back" href="onboarding.html">← Back to Welcome</a>
+
+  <div class="page-header">
+    <span class="badge">Privacy Policy</span>
+    <h1>QueryBoost Privacy Policy</h1>
+    <p>Plain language. No legalese. No surprises.</p>
+    <p class="meta">Last updated: March 21, 2026 · Applies to QueryBoost v2.0.0 and later</p>
+  </div>
+
+  <!-- Plain English summary -->
+  <div class="summary">
+    <h2>Plain-English Summary</h2>
+    <ul>
+      <li><span class="check">✓</span> QueryBoost runs entirely inside your browser. No data ever leaves your device.</li>
+      <li><span class="check">✓</span> Your queries are read locally only to detect intent and inject an enhancement wrapper.</li>
+      <li><span class="check">✓</span> Settings and feedback are stored locally using Chrome's built-in storage APIs.</li>
+      <li><span class="cross">✗</span> QueryBoost does not have a backend, server, or API endpoint.</li>
+      <li><span class="cross">✗</span> QueryBoost does not transmit, log, or share your queries or any personal data.</li>
+      <li><span class="cross">✗</span> QueryBoost does not use analytics, telemetry, crash reporting, or tracking pixels.</li>
+      <li><span class="cross">✗</span> QueryBoost does not use cookies or any cross-site tracking mechanism.</li>
+    </ul>
+  </div>
+
+  <!-- 1. What we access -->
+  <div class="section">
+    <h2>1. What QueryBoost Accesses</h2>
+    <p>
+      When you submit a query on a supported AI platform (ChatGPT, Claude, Gemini, or Perplexity),
+      QueryBoost reads the text of that query in order to:
+    </p>
+    <ul>
+      <li>Classify the intent type (e.g. code, how-to, analysis)</li>
+      <li>Generate an enhanced prompt by appending structured instructions</li>
+      <li>Re-inject the enhanced query into the input field before submission</li>
+    </ul>
+    <p>
+      This processing happens entirely within the content script running in your browser tab.
+      The query text is never sent anywhere outside of the page you are already on.
+    </p>
+  </div>
+
+  <!-- 2. Data stored -->
+  <div class="section">
+    <h2>2. Data Stored on Your Device</h2>
+    <p>
+      QueryBoost stores a small amount of data locally using Chrome's <code>storage.sync</code>
+      and <code>storage.local</code> APIs. This data never leaves your browser except via
+      Chrome's own account sync (which you control in your Chrome settings).
+    </p>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>What it stores</th>
+          <th>Where</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>qb_enabled</td>
+          <td>Whether the extension is on or off</td>
+          <td><span class="tag tag-sync">sync</span></td>
+        </tr>
+        <tr>
+          <td>qb_domain_mode</td>
+          <td>Your selected persona mode (general, developer, etc.)</td>
+          <td><span class="tag tag-sync">sync</span></td>
+        </tr>
+        <tr>
+          <td>qb_ab_variant</td>
+          <td>Your randomly-assigned A/B wrapper variant (A or B)</td>
+          <td><span class="tag tag-sync">sync</span></td>
+        </tr>
+        <tr>
+          <td>qb_transparency</td>
+          <td>Whether wrapper transparency mode is enabled</td>
+          <td><span class="tag tag-sync">sync</span></td>
+        </tr>
+        <tr>
+          <td>qb_custom_wrappers</td>
+          <td>Your custom wrapper templates (text you wrote)</td>
+          <td><span class="tag tag-sync">sync</span></td>
+        </tr>
+        <tr>
+          <td>qb_last_type</td>
+          <td>The type label from your last boost (e.g. "Code / Debug")</td>
+          <td><span class="tag tag-sync">sync</span></td>
+        </tr>
+        <tr>
+          <td>qb_boost_count</td>
+          <td>Lifetime count of queries boosted</td>
+          <td><span class="tag tag-sync">sync</span></td>
+        </tr>
+        <tr>
+          <td>qb_feedback</td>
+          <td>Your 👍/👎 ratings — up to 500 entries (type, variant, platform, timestamp)</td>
+          <td><span class="tag tag-local">local</span></td>
+        </tr>
+        <tr>
+          <td>qb_ab_stats</td>
+          <td>Aggregate sent/thumbs-up/thumbs-down counts per variant</td>
+          <td><span class="tag tag-local">local</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      <strong>Note:</strong> Feedback entries include the query <em>type</em> (e.g. "code"),
+      the platform (e.g. "chatgpt"), and a timestamp — but <strong>never the query text itself</strong>.
+    </p>
+  </div>
+
+  <!-- 3. Permissions -->
+  <div class="section">
+    <h2>3. Chrome Permissions Used</h2>
+    <ul>
+      <li><strong>activeTab</strong> — Allows the popup to detect which supported platform you're on.</li>
+      <li><strong>storage</strong> — Allows saving your settings and feedback locally (described above).</li>
+      <li><strong>host_permissions (claude.ai, chatgpt.com, gemini.google.com, perplexity.ai)</strong> — Required to run the content script on these pages to intercept and enhance queries.</li>
+    </ul>
+    <p>No other permissions are requested. QueryBoost does not request access to browsing history, bookmarks, cookies, downloads, or any other browser data.</p>
+  </div>
+
+  <!-- 4. No external communication -->
+  <div class="section">
+    <h2>4. No External Communication</h2>
+    <p>
+      QueryBoost has no backend. It does not make any network requests to any server owned
+      or operated by the developers. The extension is entirely self-contained: a collection
+      of local JavaScript and HTML files that run inside your browser.
+    </p>
+    <p>
+      The only network activity associated with QueryBoost is the query you submit to
+      ChatGPT, Claude, Gemini, or Perplexity — which goes directly to those services,
+      exactly as it would without the extension, just with the enhanced text.
+    </p>
+  </div>
+
+  <!-- 5. Chrome Sync -->
+  <div class="section">
+    <h2>5. Chrome Account Sync</h2>
+    <p>
+      Settings stored in <code>chrome.storage.sync</code> (your toggle state, domain mode,
+      A/B variant, custom wrappers) may be synced across your Chrome-signed-in devices
+      if you have Chrome Sync enabled. This sync is handled entirely by Google Chrome —
+      QueryBoost has no involvement in or visibility into this process.
+    </p>
+    <p>
+      To prevent syncing, you can disable extension data sync in Chrome settings, or use
+      the extension in a profile without Chrome Sync enabled.
+    </p>
+  </div>
+
+  <!-- 6. Data deletion -->
+  <div class="section">
+    <h2>6. Deleting Your Data</h2>
+    <p>You can delete all data stored by QueryBoost at any time:</p>
+    <ul>
+      <li><strong>Feedback and A/B stats</strong> — Open the popup → Settings tab → click "Clear feedback &amp; A/B data".</li>
+      <li><strong>Custom wrappers</strong> — Open the popup → Custom tab → select each type and click "Reset to default".</li>
+      <li><strong>All data</strong> — Uninstalling the extension removes all locally stored data. Synced data can be cleared in Chrome's extension storage settings.</li>
+    </ul>
+  </div>
+
+  <!-- 7. Children -->
+  <div class="section">
+    <h2>7. Children's Privacy</h2>
+    <p>
+      QueryBoost does not knowingly collect any information from anyone, including children
+      under the age of 13. As the extension collects no personal data at all, it has no
+      specific provisions for children's data.
+    </p>
+  </div>
+
+  <!-- 8. Changes -->
+  <div class="section">
+    <h2>8. Changes to This Policy</h2>
+    <p>
+      If this policy changes in a meaningful way (e.g. if a future version adds any form of
+      data collection), the changelog will describe it clearly and the "Last updated" date
+      above will be updated. We will not retroactively apply a new policy to data collected
+      under a prior policy.
+    </p>
+  </div>
+
+  <!-- 9. Contact -->
+  <div class="section">
+    <h2>9. Contact</h2>
+    <div class="contact-box">
+      <p>
+        Questions about this policy? Open an issue on GitHub:
+        <a href="https://github.com/omerTT/queryboost/issues" target="_blank" rel="noopener noreferrer">
+          github.com/omerTT/queryboost/issues
+        </a>
+      </p>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

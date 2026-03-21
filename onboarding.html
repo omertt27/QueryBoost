@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to QueryBoost</title>
+  <style>
+    :root {
+      --bg: #0d0d0f;
+      --surface: #18181c;
+      --border: #2e2e38;
+      --accent: #7c6af7;
+      --accent-glow: rgba(124,106,247,0.35);
+      --text: #f0f0f5;
+      --muted: #8888a0;
+      --faint: #55556a;
+      --green: #3ecf8e;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 660px;
+      margin: 0 auto;
+      padding: 60px 32px 80px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+
+    .hero-logo {
+      width: 72px;
+      height: 72px;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 34px;
+      box-shadow: 0 0 40px var(--accent-glow);
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 10px;
+    }
+
+    .hero h1 span {
+      background: linear-gradient(135deg, #a78bfa, #7c6af7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      font-size: 16px;
+      color: var(--muted);
+      max-width: 440px;
+      margin: 0 auto;
+    }
+
+    /* ── How it works ── */
+    .section {
+      margin-bottom: 48px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--faint);
+      margin-bottom: 18px;
+    }
+
+    /* Steps */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .step {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      background: rgba(124,106,247,0.15);
+      border: 1px solid rgba(124,106,247,0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #a78bfa;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .step-body h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .step-body p {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* Feature grid */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .feature-icon {
+      font-size: 22px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .feature-card h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .feature-card p {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* Query type table */
+    .types-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .type-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+
+    .type-pill .label {
+      font-weight: 600;
+      color: #a78bfa;
+      font-family: var(--mono);
+      font-size: 11px;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .type-pill .example {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    /* Privacy highlight */
+    .privacy-box {
+      background: rgba(62,207,142,0.06);
+      border: 1px solid rgba(62,207,142,0.2);
+      border-radius: 12px;
+      padding: 20px 22px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .privacy-box .icon {
+      font-size: 24px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .privacy-box h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--green);
+      margin-bottom: 6px;
+    }
+
+    .privacy-box p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .privacy-box a {
+      color: var(--green);
+      text-decoration: none;
+    }
+
+    .privacy-box a:hover {
+      text-decoration: underline;
+    }
+
+    /* CTA */
+    .cta {
+      text-align: center;
+      margin-top: 52px;
+    }
+
+    .cta p {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px 28px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 4px 16px var(--accent-glow);
+      transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+    }
+
+    .cta-btn:hover {
+      background: #6b5ae3;
+      box-shadow: 0 6px 24px var(--accent-glow);
+      transform: translateY(-1px);
+    }
+
+    .cta-btn:active {
+      transform: translateY(0);
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 48px 0;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-logo">⚡</div>
+    <h1>Welcome to <span>QueryBoost</span></h1>
+    <p>You'll get smarter AI answers from this moment on — without changing how you type.</p>
+  </div>
+
+  <!-- How it works -->
+  <div class="section">
+    <div class="section-label">How it works</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>You type normally</h3>
+          <p>No templates, no pre-prompts, no copy-pasting. Just type into ChatGPT, Claude, Gemini, or Perplexity as you always have.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>QueryBoost detects your intent</h3>
+          <p>Before your query is sent, QueryBoost classifies it — code, explanation, how-to, analysis, creative, and more — using a weighted signal engine.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>A structured wrapper is injected</h3>
+          <p>The query is silently rewritten with precise output instructions tailored to the intent. The AI never surfaces these instructions in its response.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>You get a noticeably better answer</h3>
+          <p>A small toast confirms the boost type. Click <strong>Preview</strong> to see what was added. That's it.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Features -->
+  <div class="section">
+    <div class="section-label">What's included in v2.0</div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <span class="feature-icon">🎯</span>
+        <h3>10 Query Types</h3>
+        <p>Separate wrappers for code, how-to, data/SQL, creative, opinion, and more.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🧑‍💻</span>
+        <h3>Domain Modes</h3>
+        <p>Developer, Student, Researcher, Writer — tune the AI's register to your context.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🔀</span>
+        <h3>A/B Testing</h3>
+        <p>Two wrapper variants. See which one gets better feedback in the Stats tab.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">✏️</span>
+        <h3>Custom Wrappers</h3>
+        <p>Override any query type with your own template using <code>{{query}}</code>.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">👁️</span>
+        <h3>Transparency Mode</h3>
+        <p>See exactly what was injected into your prompt — highlighted in the toast preview.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">📊</span>
+        <h3>Feedback Loop</h3>
+        <p>Rate every boost with 👍/👎. Per-type approval rates tracked in Stats.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Supported query types -->
+  <div class="section">
+    <div class="section-label">Detected query types</div>
+    <div class="types-grid">
+      <div class="type-pill">
+        <span class="label">Code / Debug</span>
+        <span class="example">"Fix this TypeError in my React component"</span>
+      </div>
+      <div class="type-pill">
+        <span class="label">Explain / Learn</span>
+        <span class="example">"What is the difference between TCP and UDP?"</span>
+      </div>
+      <div class="type-pill">
+        <span class="label">How-To / Steps</span>
+        <span class="example">"How do I deploy a Next.js app to Vercel?"</span>
+      </div>
+      <div class="type-pill">
+        <span class="label">Analyze / Review</span>
+        <span class="example">"Pros and cons of microservices vs monolith"</span>
+      </div>
+      <div class="type-pill">
+        <span class="label">Write / Draft</span>
+        <span class="example">"Write a cover letter for a senior dev role"</span>
+      </div>
+      <div class="type-pill">
+        <span class="label">Data / SQL</span>
+        <span class="example">"Write a query to find top 5 customers by revenue"</span>
+      </div>
+      <div class="type-pill">
+        <span class="label">Recommend / List</span>
+        <span class="example">"Best books on system design"</span>
+      </div>
+      <div class="type-pill">
+        <span class="label">Opinion / Decision</span>
+        <span class="example">"Should I learn Rust or Go in 2026?"</span>
+      </div>
+      <div class="type-pill">
+        <span class="label">Creative</span>
+        <span class="example">"Write a short story about a sentient compiler"</span>
+      </div>
+      <div class="type-pill">
+        <span class="label">Local / Travel</span>
+        <span class="example">"Best coffee shops in Lisbon for remote work"</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Privacy -->
+  <div class="section">
+    <div class="privacy-box">
+      <div class="icon">🔒</div>
+      <div>
+        <h3>100% private — nothing leaves your browser</h3>
+        <p>
+          QueryBoost reads your query text only to detect intent and inject the wrapper.
+          No data is sent to any server. No queries are logged or stored remotely.
+          Everything happens locally, on your device.
+          <br><br>
+          <a href="privacy.html" target="_blank">Read the full privacy policy →</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta">
+    <p>Go to any supported platform and start asking questions — QueryBoost is already running.</p>
+    <a class="cta-btn" href="https://chatgpt.com" target="_blank" rel="noopener noreferrer">
+      ⚡ Open ChatGPT and try it
+    </a>
+  </div>
+
+</div>
+</body>
+</html>

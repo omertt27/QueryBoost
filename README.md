@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="icons/icon128.png" alt="QueryBoost logo" width="96" height="96" />
+<img src="assets/logo.png" alt="QueryBoost logo" width="120" height="120" />
 
 # QueryBoost
 
@@ -12,6 +12,10 @@ QueryBoost intercepts your prompts before they're sent, wraps them with precisio
 [![Manifest](https://img.shields.io/badge/manifest-v3-10b981?style=flat-square)](https://developer.chrome.com/docs/extensions/mv3/)
 [![License](https://img.shields.io/badge/license-MIT-f5c842?style=flat-square)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-ChatGPT%20%7C%20Claude%20%7C%20Gemini%20%7C%20Perplexity-a78bfa?style=flat-square)](#supported-platforms)
+
+<br/>
+
+<img src="assets/social-preview.png" alt="QueryBoost social preview" width="680" />
 
 </div>
 

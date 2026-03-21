@@ -50,6 +50,10 @@ chrome.runtime.onInstalled.addListener((details) => {
       qb_enabled: true,
       qb_last_type: null,
       qb_platform: null,
+      qb_boost_count: 0,
+      qb_last_boost_ts: null,
     });
+    // Open onboarding page in a new tab
+    chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') });
   }
 });

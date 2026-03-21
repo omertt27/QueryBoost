@@ -18,6 +18,7 @@ const STORAGE_KEY_AB_VARIANT   = 'qb_ab_variant';
 const STORAGE_KEY_FEEDBACK     = 'qb_feedback';
 const STORAGE_KEY_AB_STATS     = 'qb_ab_stats';
 const STORAGE_KEY_CUSTOM_WRAP  = 'qb_custom_wrappers';
+const STORAGE_KEY_LAST_BOOST_TS= 'qb_last_boost_ts';
 
 // ── Platform display config ───────────────────────────────
 
@@ -66,6 +67,9 @@ const abbDown             = document.getElementById('qb-ab-b-down');
 const abbRate             = document.getElementById('qb-ab-b-rate');
 const typeStatsEl         = document.getElementById('qb-type-stats');
 const feedbackLogEl       = document.getElementById('qb-feedback-log');
+const lastBoostTimeEl     = document.getElementById('qb-last-boost-time');
+const storageValEl        = document.getElementById('qb-storage-val');
+const storageBarEl        = document.getElementById('qb-storage-bar');
 
 // ── Tab navigation ────────────────────────────────────────
 
@@ -81,7 +85,7 @@ document.querySelectorAll('.qb-tab').forEach((btn) => {
 
     // Refresh data-heavy panels on open
     if (target === 'stats')  { loadABStats(); loadFeedbackLog(); }
-    if (target === 'custom') loadCustomWrappers();
+    if (target === 'custom') { loadCustomWrappers(); loadSyncStorageUsage(); }
   });
 });
 
@@ -143,6 +147,50 @@ function renderABVariant(variant) {
   if (!abVariantPill) return;
   abVariantPill.textContent = 'Variant ' + (variant || '?');
   abVariantPill.className = 'qb-ab-pill qb-ab-pill-' + (variant || 'A').toLowerCase();
+}
+
+// ── Last boost timestamp ──────────────────────────────────
+
+function renderLastBoostTime(ts) {
+  if (!lastBoostTimeEl) return;
+  if (!ts) {
+    lastBoostTimeEl.textContent = 'No boosts recorded yet';
+    lastBoostTimeEl.style.color = '#55556a';
+    return;
+  }
+  const diff = Date.now() - ts;
+  const secs = Math.floor(diff / 1000);
+  const mins = Math.floor(secs / 60);
+  const hrs  = Math.floor(mins / 60);
+  let label;
+  if (secs < 10)        label = 'Just now';
+  else if (secs < 60)   label = secs + 's ago';
+  else if (mins < 60)   label = mins + 'm ago';
+  else if (hrs < 24)    label = hrs + 'h ago';
+  else                  label = new Date(ts).toLocaleDateString();
+  lastBoostTimeEl.textContent = label;
+  // Green if recent (< 5 min), amber if stale (> 30 min), grey if none
+  if (mins < 5)       lastBoostTimeEl.style.color = '#3ecf8e';
+  else if (mins < 30) lastBoostTimeEl.style.color = '#f5c842';
+  else                lastBoostTimeEl.style.color = '#8888a0';
+}
+
+// ── Sync storage byte counter ─────────────────────────────
+
+const SYNC_QUOTA_BYTES = 102400; // Chrome's chrome.storage.sync limit: 100 KB
+
+function loadSyncStorageUsage() {
+  if (!storageValEl || !storageBarEl) return;
+  chrome.storage.sync.getBytesInUse(null, (bytes) => {
+    const kb   = (bytes / 1024).toFixed(1);
+    const pct  = Math.min(100, Math.round((bytes / SYNC_QUOTA_BYTES) * 100));
+    storageValEl.textContent = kb + ' KB / 100 KB (' + pct + '%)';
+    storageBarEl.style.width = pct + '%';
+    // Color: green < 50%, amber 50–80%, red > 80%
+    if (pct < 50)       storageBarEl.style.background = '#3ecf8e';
+    else if (pct < 80)  storageBarEl.style.background = '#f5c842';
+    else                storageBarEl.style.background = '#f25f5c';
+  });
 }
 
 // ── A/B Stats ─────────────────────────────────────────────
@@ -251,6 +299,7 @@ function renderCustomList() {
         if (customTypeSelect.value === btn.dataset.key) customTextarea.value = '';
         renderCustomList();
         showCustomStatus('Wrapper removed.', false);
+        loadSyncStorageUsage();
       });
     });
   });
@@ -286,6 +335,7 @@ if (customSaveBtn) {
     chrome.storage.sync.set({ [STORAGE_KEY_CUSTOM_WRAP]: _customWraps }, () => {
       renderCustomList();
       showCustomStatus(val ? '✓ Saved!' : '✓ Reset to default.', false);
+      loadSyncStorageUsage();
     });
   });
 }
@@ -298,6 +348,7 @@ if (customClearBtn) {
     chrome.storage.sync.set({ [STORAGE_KEY_CUSTOM_WRAP]: _customWraps }, () => {
       renderCustomList();
       showCustomStatus('Reset to default.', false);
+      loadSyncStorageUsage();
     });
   });
 }
@@ -321,7 +372,8 @@ if (resetFeedbackBtn) {
 function init() {
   chrome.storage.sync.get(
     [STORAGE_KEY_ENABLED, STORAGE_KEY_LAST_TYPE, STORAGE_KEY_PLATFORM,
-     STORAGE_KEY_COUNT, STORAGE_KEY_DOMAIN_MODE, STORAGE_KEY_TRANSPARENCY, STORAGE_KEY_AB_VARIANT],
+     STORAGE_KEY_COUNT, STORAGE_KEY_DOMAIN_MODE, STORAGE_KEY_TRANSPARENCY,
+     STORAGE_KEY_AB_VARIANT, STORAGE_KEY_LAST_BOOST_TS],
     (result) => {
       const enabled     = result[STORAGE_KEY_ENABLED]     !== false;
       const lastType    = result[STORAGE_KEY_LAST_TYPE]   || null;
@@ -330,6 +382,7 @@ function init() {
       const mode        = result[STORAGE_KEY_DOMAIN_MODE] || 'general';
       const transp      = result[STORAGE_KEY_TRANSPARENCY] === true;
       const abVariant   = result[STORAGE_KEY_AB_VARIANT]  || null;
+      const lastBoostTs = result[STORAGE_KEY_LAST_BOOST_TS] || null;
 
       renderToggle(enabled);
       renderLastType(lastType);
@@ -337,6 +390,7 @@ function init() {
       renderDomainMode(mode);
       renderTransparency(transp);
       renderABVariant(abVariant);
+      renderLastBoostTime(lastBoostTs);
 
       detectActivePlatform((livePlat) => {
         renderPlatform(livePlat || (storedPlat ? capitalize(storedPlat) : null));
@@ -397,11 +451,12 @@ if (transparencyInput) {
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'sync') {
-    if (changes[STORAGE_KEY_LAST_TYPE])  renderLastType(changes[STORAGE_KEY_LAST_TYPE].newValue);
-    if (changes[STORAGE_KEY_PLATFORM])   renderPlatform(capitalize(changes[STORAGE_KEY_PLATFORM].newValue));
-    if (changes[STORAGE_KEY_COUNT])      renderCount(changes[STORAGE_KEY_COUNT].newValue);
-    if (changes[STORAGE_KEY_DOMAIN_MODE]) renderDomainMode(changes[STORAGE_KEY_DOMAIN_MODE].newValue);
-    if (changes[STORAGE_KEY_AB_VARIANT]) renderABVariant(changes[STORAGE_KEY_AB_VARIANT].newValue);
+    if (changes[STORAGE_KEY_LAST_TYPE])    renderLastType(changes[STORAGE_KEY_LAST_TYPE].newValue);
+    if (changes[STORAGE_KEY_PLATFORM])     renderPlatform(capitalize(changes[STORAGE_KEY_PLATFORM].newValue));
+    if (changes[STORAGE_KEY_COUNT])        renderCount(changes[STORAGE_KEY_COUNT].newValue);
+    if (changes[STORAGE_KEY_DOMAIN_MODE])  renderDomainMode(changes[STORAGE_KEY_DOMAIN_MODE].newValue);
+    if (changes[STORAGE_KEY_AB_VARIANT])   renderABVariant(changes[STORAGE_KEY_AB_VARIANT].newValue);
+    if (changes[STORAGE_KEY_LAST_BOOST_TS]) renderLastBoostTime(changes[STORAGE_KEY_LAST_BOOST_TS].newValue);
   }
 });
 

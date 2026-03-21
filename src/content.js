@@ -36,7 +36,7 @@
   const STORAGE_KEY_AB_STATS    = 'qb_ab_stats';
   const STORAGE_KEY_CUSTOM_WRAP = 'qb_custom_wrappers';
 
-  const TOAST_DURATION_MS = 6000;
+  const TOAST_DURATION_MS = 4000;
   const SUBMIT_DELAY_MS   = 150;
 
   // ─── Platform Detection ───────────────────────────────────────────────────
@@ -1060,8 +1060,9 @@
       var variant  = result.variant || abVariant || 'A';
 
       chrome.storage.sync.set({
-        qb_last_type: label,
-        qb_platform:  PLATFORM,
+        qb_last_type:      label,
+        qb_platform:       PLATFORM,
+        qb_last_boost_ts:  Date.now(),
       });
 
       // Increment lifetime boost counter
