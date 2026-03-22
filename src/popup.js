@@ -1,24 +1,28 @@
 /**
- * QueryBoost — Popup Script v2.0
+ * QueryBoost — Popup Script v2.1
  * Handles: toggle, platform detection, domain mode, transparency,
  * custom wrappers, A/B variant display, A/B stats, feedback log.
+ *
+ * Fix #11: All storage keys sourced from QB_KEYS (constants.js loaded first).
+ * Fix #10: Consolidated onChanged handler refreshes all derived UI.
+ * Fix #12: Feedback log built with createElement/textContent (no innerHTML XSS).
  */
 
 'use strict';
 
-// ── Storage keys (must match content.js) ─────────────────
+// ── Storage keys from shared constants (constants.js loaded before this file) ─
 
-const STORAGE_KEY_ENABLED      = 'qb_enabled';
-const STORAGE_KEY_LAST_TYPE    = 'qb_last_type';
-const STORAGE_KEY_PLATFORM     = 'qb_platform';
-const STORAGE_KEY_COUNT        = 'qb_boost_count';
-const STORAGE_KEY_DOMAIN_MODE  = 'qb_domain_mode';
-const STORAGE_KEY_TRANSPARENCY = 'qb_transparency';
-const STORAGE_KEY_AB_VARIANT   = 'qb_ab_variant';
-const STORAGE_KEY_FEEDBACK     = 'qb_feedback';
-const STORAGE_KEY_AB_STATS     = 'qb_ab_stats';
-const STORAGE_KEY_CUSTOM_WRAP  = 'qb_custom_wrappers';
-const STORAGE_KEY_LAST_BOOST_TS= 'qb_last_boost_ts';
+const STORAGE_KEY_ENABLED      = QB_KEYS.ENABLED;
+const STORAGE_KEY_LAST_TYPE    = QB_KEYS.LAST_TYPE;
+const STORAGE_KEY_PLATFORM     = QB_KEYS.PLATFORM;
+const STORAGE_KEY_COUNT        = QB_KEYS.COUNT;
+const STORAGE_KEY_DOMAIN_MODE  = QB_KEYS.DOMAIN_MODE;
+const STORAGE_KEY_TRANSPARENCY = QB_KEYS.TRANSPARENCY;
+const STORAGE_KEY_AB_VARIANT   = QB_KEYS.AB_VARIANT;
+const STORAGE_KEY_FEEDBACK     = QB_KEYS.FEEDBACK;
+const STORAGE_KEY_AB_STATS     = QB_KEYS.AB_STATS;
+const STORAGE_KEY_CUSTOM_WRAP  = QB_KEYS.CUSTOM_WRAP;
+const STORAGE_KEY_LAST_BOOST_TS= QB_KEYS.LAST_BOOST_TS;
 
 // ── Platform display config ───────────────────────────────
 
@@ -35,6 +39,15 @@ const DOMAIN_MODE_DESCRIPTIONS = {
   student:    'Assumes first-time learner; prioritizes clarity',
   researcher: 'Assumes academic context; emphasizes rigor',
   writer:     'Assumes professional writer; emphasizes style',
+};
+
+// #4: Actual persona prefix text injected into each wrapper
+const DOMAIN_MODE_PERSONAS = {
+  general:    '',
+  developer:  'Prefix: "Assume I am an experienced software engineer who values precision and brevity. Skip over-explaining basics."',
+  student:    'Prefix: "Assume I am a university student learning this for the first time. Prioritize clarity and foundational understanding."',
+  researcher: 'Prefix: "Assume I am a researcher who needs rigorous, evidence-based reasoning. Cite where relevant. Prefer depth over accessibility."',
+  writer:     'Prefix: "Assume I am a professional writer focused on clarity, tone, and style. Emphasize language quality above technical depth."',
 };
 
 // ── DOM references ────────────────────────────────────────
@@ -70,6 +83,10 @@ const feedbackLogEl       = document.getElementById('qb-feedback-log');
 const lastBoostTimeEl     = document.getElementById('qb-last-boost-time');
 const storageValEl        = document.getElementById('qb-storage-val');
 const storageBarEl        = document.getElementById('qb-storage-bar');
+const modePersonaEl       = document.getElementById('qb-mode-persona');
+const lastBoostDetailCard = document.getElementById('qb-last-boost-detail-card');
+const lastBoostDetailBody = document.getElementById('qb-last-boost-detail');
+const detailToggleBtn     = document.getElementById('qb-detail-toggle');
 
 // ── Tab navigation ────────────────────────────────────────
 
@@ -137,6 +154,12 @@ function renderCount(count) {
 function renderDomainMode(mode) {
   if (domainSelect) domainSelect.value = mode || 'general';
   if (modeDescEl)   modeDescEl.textContent = DOMAIN_MODE_DESCRIPTIONS[mode] || DOMAIN_MODE_DESCRIPTIONS.general;
+  // #4: show the actual injected persona prefix text
+  if (modePersonaEl) {
+    const persona = DOMAIN_MODE_PERSONAS[mode] || '';
+    modePersonaEl.textContent = persona;
+    modePersonaEl.style.display = persona ? 'block' : 'none';
+  }
 }
 
 function renderTransparency(val) {
@@ -206,12 +229,18 @@ function loadABStats() {
     abaDown.textContent  = A.thumbs_down;
     const aFb = A.thumbs_up + A.thumbs_down;
     abaRate.textContent  = aFb > 0 ? Math.round((A.thumbs_up / aFb) * 100) + '%' : '–';
+    // #6: fraction
+    const aFracEl = document.getElementById('qb-ab-a-fraction');
+    if (aFracEl) aFracEl.textContent = aFb > 0 ? A.thumbs_up + '/' + aFb : '–';
 
     abbSent.textContent  = B.sent;
     abbUp.textContent    = B.thumbs_up;
     abbDown.textContent  = B.thumbs_down;
     const bFb = B.thumbs_up + B.thumbs_down;
     abbRate.textContent  = bFb > 0 ? Math.round((B.thumbs_up / bFb) * 100) + '%' : '–';
+    // #6: fraction
+    const bFracEl = document.getElementById('qb-ab-b-fraction');
+    if (bFracEl) bFracEl.textContent = bFb > 0 ? B.thumbs_up + '/' + bFb : '–';
   });
 }
 
@@ -221,7 +250,7 @@ function loadFeedbackLog() {
   chrome.storage.local.get([STORAGE_KEY_FEEDBACK], (r) => {
     const fb = r[STORAGE_KEY_FEEDBACK] || [];
 
-    // By query type
+    // ── By query type (Fix #12: safe DOM, no innerHTML for user data) ──
     const byType = {};
     fb.forEach((entry) => {
       const t = entry.type || 'unknown';
@@ -230,38 +259,84 @@ function loadFeedbackLog() {
       else byType[t].down++;
     });
 
+    typeStatsEl.innerHTML = '';
     if (Object.keys(byType).length === 0) {
-      typeStatsEl.innerHTML = '<span style="color:#55556a;font-size:11px;">No feedback yet.</span>';
+      const empty = document.createElement('span');
+      empty.style.cssText = 'color:#55556a;font-size:11px;';
+      empty.textContent = 'No feedback yet.';
+      typeStatsEl.appendChild(empty);
     } else {
-      typeStatsEl.innerHTML = Object.entries(byType).map(([type, counts]) => {
+      Object.entries(byType).forEach(([type, counts]) => {
         const total = counts.up + counts.down;
         const rate  = total > 0 ? Math.round((counts.up / total) * 100) : 0;
-        const bar   = `<div class="qb-ts-bar" style="width:${rate}%"></div>`;
-        return `<div class="qb-ts-row">
-          <span class="qb-ts-type">${type}</span>
-          <div class="qb-ts-bar-track">${bar}</div>
-          <span class="qb-ts-rate">${rate}%</span>
-          <span class="qb-ts-counts">👍${counts.up} 👎${counts.down}</span>
-        </div>`;
-      }).join('');
+
+        const row = document.createElement('div');
+        row.className = 'qb-ts-row';
+
+        const typeEl = document.createElement('span');
+        typeEl.className = 'qb-ts-type';
+        typeEl.textContent = type; // safe — textContent, not innerHTML
+
+        const track = document.createElement('div');
+        track.className = 'qb-ts-bar-track';
+        const bar = document.createElement('div');
+        bar.className = 'qb-ts-bar';
+        bar.style.width = rate + '%';
+        track.appendChild(bar);
+
+        const rateEl = document.createElement('span');
+        rateEl.className = 'qb-ts-rate';
+        rateEl.textContent = rate + '%';
+
+        const countsEl = document.createElement('span');
+        countsEl.className = 'qb-ts-counts';
+        countsEl.textContent = '👍' + counts.up + ' 👎' + counts.down;
+
+        row.append(typeEl, track, rateEl, countsEl);
+        typeStatsEl.appendChild(row);
+      });
     }
 
-    // Recent entries (last 15)
-    const recent = fb.slice(-15).reverse();
+    // ── Recent entries (last 15) with optional filter (#8) ──
+    const filterType    = document.getElementById('qb-filter-type')    ? document.getElementById('qb-filter-type').value    : '';
+    const filterVariant = document.getElementById('qb-filter-variant') ? document.getElementById('qb-filter-variant').value : '';
+    let filtered = fb;
+    if (filterType)    filtered = filtered.filter((e) => e.type    === filterType);
+    if (filterVariant) filtered = filtered.filter((e) => e.variant === filterVariant);
+    const recent = filtered.slice(-15).reverse();
+    feedbackLogEl.innerHTML = '';
     if (recent.length === 0) {
-      feedbackLogEl.innerHTML = '<li class="qb-feedback-empty">No feedback recorded yet.</li>';
+      const li = document.createElement('li');
+      li.className = 'qb-feedback-empty';
+      li.textContent = 'No feedback recorded yet.';
+      feedbackLogEl.appendChild(li);
     } else {
-      feedbackLogEl.innerHTML = recent.map((entry) => {
+      recent.forEach((entry) => {
         const d    = new Date(entry.ts);
         const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const icon = entry.signal === 'up' ? '👍' : '👎';
-        return `<li class="qb-feedback-item">
-          <span class="qb-fi-icon">${icon}</span>
-          <span class="qb-fi-type">${entry.type || '?'}</span>
-          <span class="qb-fi-meta">${entry.platform || ''} · v${entry.variant || '?'} · ${entry.mode || ''}</span>
-          <span class="qb-fi-time">${time}</span>
-        </li>`;
-      }).join('');
+
+        const li = document.createElement('li');
+        li.className = 'qb-feedback-item';
+
+        const icon = document.createElement('span');
+        icon.className = 'qb-fi-icon';
+        icon.textContent = entry.signal === 'up' ? '👍' : '👎';
+
+        const typeEl = document.createElement('span');
+        typeEl.className = 'qb-fi-type';
+        typeEl.textContent = entry.type || '?'; // safe
+
+        const meta = document.createElement('span');
+        meta.className = 'qb-fi-meta';
+        meta.textContent = (entry.platform || '') + ' · v' + (entry.variant || '?') + ' · ' + (entry.mode || '');
+
+        const timeEl = document.createElement('span');
+        timeEl.className = 'qb-fi-time';
+        timeEl.textContent = time;
+
+        li.append(icon, typeEl, meta, timeEl);
+        feedbackLogEl.appendChild(li);
+      });
     }
   });
 }
@@ -403,6 +478,9 @@ function init() {
     _customWraps = r[STORAGE_KEY_CUSTOM_WRAP] || {};
     renderCustomList();
   });
+
+  // #9: Load last boost detail card on popup open
+  loadLastBoostDetail();
 }
 
 function capitalize(str) {
@@ -448,17 +526,177 @@ if (transparencyInput) {
 }
 
 // ── Storage change listener (live updates) ────────────────
+// Fix #10: Single consolidated handler so every key change refreshes all
+// derived UI, keeping the popup consistent during active boost sessions.
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'sync') {
+    if (changes[STORAGE_KEY_ENABLED])      renderToggle(changes[STORAGE_KEY_ENABLED].newValue !== false);
     if (changes[STORAGE_KEY_LAST_TYPE])    renderLastType(changes[STORAGE_KEY_LAST_TYPE].newValue);
     if (changes[STORAGE_KEY_PLATFORM])     renderPlatform(capitalize(changes[STORAGE_KEY_PLATFORM].newValue));
     if (changes[STORAGE_KEY_COUNT])        renderCount(changes[STORAGE_KEY_COUNT].newValue);
     if (changes[STORAGE_KEY_DOMAIN_MODE])  renderDomainMode(changes[STORAGE_KEY_DOMAIN_MODE].newValue);
+    if (changes[STORAGE_KEY_TRANSPARENCY]) renderTransparency(changes[STORAGE_KEY_TRANSPARENCY].newValue);
     if (changes[STORAGE_KEY_AB_VARIANT])   renderABVariant(changes[STORAGE_KEY_AB_VARIANT].newValue);
     if (changes[STORAGE_KEY_LAST_BOOST_TS]) renderLastBoostTime(changes[STORAGE_KEY_LAST_BOOST_TS].newValue);
   }
 });
+
+// ── Feedback filter handlers (#8) ─────────────────────────
+
+const filterTypeEl    = document.getElementById('qb-filter-type');
+const filterVariantEl = document.getElementById('qb-filter-variant');
+if (filterTypeEl)    filterTypeEl.addEventListener('change',    () => loadFeedbackLog());
+if (filterVariantEl) filterVariantEl.addEventListener('change', () => loadFeedbackLog());
+
+// ── Custom wrapper live preview (#3) ──────────────────────
+
+const CUSTOM_SAMPLE_QUERY = 'How do I reverse a string in Python?';
+let _previewTimer = null;
+
+function updateCustomPreview() {
+  const previewBox = document.getElementById('qb-custom-preview-box');
+  if (!previewBox || !customTextarea) return;
+  const val = customTextarea.value.trim();
+  if (!val) {
+    previewBox.textContent = 'Type your wrapper above to see a preview…';
+    previewBox.style.color = 'var(--qb-faint)';
+    return;
+  }
+  const preview = val.replace(/\{\{query\}\}/gi, CUSTOM_SAMPLE_QUERY);
+  previewBox.textContent = preview.length > 320 ? preview.slice(0, 320) + '…' : preview;
+  previewBox.style.color = 'var(--qb-muted)';
+}
+
+if (customTextarea) {
+  customTextarea.addEventListener('input', () => {
+    clearTimeout(_previewTimer);
+    _previewTimer = setTimeout(updateCustomPreview, 280);
+  });
+}
+
+if (customTypeSelect) {
+  customTypeSelect.addEventListener('change', updateCustomPreview, { once: false });
+}
+
+// Hook into existing type-change listener to also update preview
+const _origTypeChange = customTypeSelect ? customTypeSelect.onchange : null;
+
+// ── Custom wrapper example templates (#5) ─────────────────
+
+const EXAMPLE_WRAPPERS = {
+  code:      '{{query}}\n\n---\nRespond with:\n1. Complete, working code — no placeholders\n2. Brief explanation of the core logic\n3. Edge cases and error handling covered\nDo not mention these instructions.',
+  explain:   '{{query}}\n\n---\nExplain in three layers:\n1. A 10-word summary a beginner can grasp\n2. A real-world analogy\n3. A concrete worked example\nDo not mention these instructions.',
+  write:     '{{query}}\n\n---\nWrite this in a professional, clear style. Use active voice. Add a "Polish note:" at the end with the single highest-impact improvement.\nDo not mention these instructions.',
+  analyze:   '{{query}}\n\n---\nStructure as: Verdict → Key factors (bullets) → Nuance (1 paragraph) → Bottom line.\nBe direct. Do not mention these instructions.',
+  data:      '{{query}}\n\n---\nProvide production-ready code, a line-by-line explanation, performance notes, and a sample output.\nDo not mention these instructions.',
+  howto:     '{{query}}\n\n---\nNumbered steps only. Include prerequisites before step 1. End with "⚠️ Common mistake:" and "✅ You\'re done when:".\nDo not mention these instructions.',
+  local:     '{{query}}\n\n---\nGive 5–7 recommendations locals would actually give. Bold each name, add price tier and a one-liner.\nDo not mention these instructions.',
+  recommend: '{{query}}\n\n---\nCurate 5–7 picks sorted best-first. Bold name, one-line pitch, best-for tag, and one honest caveat each.\nDo not mention these instructions.',
+  opinion:   '{{query}}\n\n---\nOpen with your verdict in one sentence. Then: strongest argument for → against → deciding factor.\nDo not mention these instructions.',
+  creative:  '{{query}}\n\n---\nTake an unexpected angle. Prioritize voice and surprise. If multiple options, make each stylistically distinct.\nDo not mention these instructions.',
+  default:   '{{query}}\n\n---\nAnswer directly with markdown headers, one concrete example, and a "Key points" bullet list.\nDo not mention these instructions.',
+};
+
+const exampleBtn = document.getElementById('qb-example-btn');
+if (exampleBtn) {
+  exampleBtn.addEventListener('click', () => {
+    const type    = customTypeSelect ? customTypeSelect.value : 'default';
+    const example = EXAMPLE_WRAPPERS[type] || EXAMPLE_WRAPPERS.default;
+    if (customTextarea) {
+      customTextarea.value = example;
+      updateCustomPreview();
+      showCustomStatus('Example loaded — customize and save.', false);
+    }
+  });
+}
+
+// ── Export / Import custom wrappers (#7) ──────────────────
+
+const exportBtn    = document.getElementById('qb-export-btn');
+const importBtn    = document.getElementById('qb-import-btn');
+const importFileEl = document.getElementById('qb-import-file');
+
+if (exportBtn) {
+  exportBtn.addEventListener('click', () => {
+    const data = JSON.stringify(_customWraps, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'queryboost-wrappers.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+
+if (importBtn && importFileEl) {
+  importBtn.addEventListener('click', () => importFileEl.click());
+
+  importFileEl.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const imported = JSON.parse(ev.target.result);
+        if (typeof imported !== 'object' || Array.isArray(imported)) throw new Error('bad shape');
+        _customWraps = Object.assign({}, _customWraps, imported);
+        chrome.storage.sync.set({ [STORAGE_KEY_CUSTOM_WRAP]: _customWraps }, () => {
+          renderCustomList();
+          loadSyncStorageUsage();
+          showCustomStatus('✓ Imported ' + Object.keys(imported).length + ' wrapper(s).', false);
+        });
+      } catch (_) {
+        showCustomStatus('Import failed: invalid JSON.', true);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+}
+
+// ── Last boost details (#9) ───────────────────────────────
+
+function loadLastBoostDetail() {
+  if (!lastBoostDetailCard || !lastBoostDetailBody) return;
+  chrome.storage.local.get(QB_KEYS.LAST_BOOST_INFO, (r) => {
+    const info = r[QB_KEYS.LAST_BOOST_INFO];
+    if (!info) { lastBoostDetailCard.style.display = 'none'; return; }
+
+    lastBoostDetailCard.style.display = '';
+
+    const d    = new Date(info.ts);
+    const when = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const snippet = document.createElement('div');
+    snippet.className = 'qb-lbd-meta';
+
+    const metaLine = document.createElement('div');
+    metaLine.className = 'qb-lbd-row';
+    metaLine.textContent = info.label + ' · v' + info.variant + ' · ' + (info.platform || '') + ' · ' + when;
+    snippet.appendChild(metaLine);
+
+    const origLine = document.createElement('div');
+    origLine.className = 'qb-lbd-original';
+    origLine.textContent = info.original && info.original.length > 120
+      ? info.original.slice(0, 120) + '…'
+      : (info.original || '');
+    snippet.appendChild(origLine);
+
+    lastBoostDetailBody.innerHTML = '';
+    lastBoostDetailBody.appendChild(snippet);
+  });
+}
+
+if (detailToggleBtn && lastBoostDetailBody) {
+  detailToggleBtn.addEventListener('click', () => {
+    const isOpen = lastBoostDetailBody.style.display !== 'none';
+    lastBoostDetailBody.style.display = isOpen ? 'none' : '';
+    detailToggleBtn.textContent       = isOpen ? 'Show ▾' : 'Hide ▴';
+    detailToggleBtn.setAttribute('aria-expanded', String(!isOpen));
+  });
+}
 
 // ── Boot ──────────────────────────────────────────────────
 

@@ -8,7 +8,7 @@ Outputs: icon16.png  icon32.png  icon48.png  icon128.png  icon128_store.png
 
 import os
 import math
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 SIZES   = [16, 32, 48, 128]
@@ -95,21 +95,28 @@ def add_highlight_sheen(draw, size):
 # ── Main Assembly ────────────────────────────────────────────────────────────
 
 def make_icon(size):
+    """
+    Fix #7: All icons are drawn at 4× resolution then downscaled with LANCZOS.
+    This gives Pillow's polygon renderer effective anti-aliasing at every size,
+    including the critical 16×16 and 32×32 targets.
+    """
+    SF = 4  # supersampling factor
+    big = size * SF
     r_frac = 0.20 if size >= 48 else (0.25 if size == 32 else 0.30)
-    
-    img = make_base(size, r_frac)
-    
-    # Use a temporary canvas for drawing the main artwork to handle transparency
-    artwork_canvas = Image.new("RGBA", img.size, (0,0,0,0))
+
+    # Draw everything at big × big
+    hi_res = make_base(big, r_frac)
+
+    artwork_canvas = Image.new("RGBA", (big, big), (0, 0, 0, 0))
     draw = ImageDraw.Draw(artwork_canvas)
-    
-    add_chevrons(draw, size)
-    add_highlight_sheen(draw, size)
-    
-    # Composite the artwork onto the base
-    img.alpha_composite(artwork_canvas)
-    
-    return img
+
+    add_chevrons(draw, big)
+    add_highlight_sheen(draw, big)
+
+    hi_res.alpha_composite(artwork_canvas)
+
+    # Downscale to target size with LANCZOS for crisp, anti-aliased result
+    return hi_res.resize((size, size), Image.LANCZOS)
 
 if __name__ == "__main__":
     if not os.path.exists(OUT_DIR):

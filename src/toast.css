@@ -245,3 +245,48 @@
   border: 1px solid rgba(245,200,66,0.2);
   font-family: monospace;
 }
+
+/* ── Skip toast (#1) ─────────────────────────────────────── */
+#qb-toast.qb-toast-skip {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  opacity: 0.85;
+  border-color: #2e2e38;
+}
+
+#qb-toast.qb-toast-skip .qb-toast-icon-dim {
+  opacity: 0.35;
+}
+
+#qb-toast.qb-toast-skip .qb-toast-title-dim {
+  color: #8888a0;
+  font-weight: 500;
+}
+
+/* ── Cache badge (#10) ───────────────────────────────────── */
+#qb-toast .qb-cache-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: rgba(245,200,66,0.12);
+  border: 1px solid rgba(245,200,66,0.3);
+  color: #f5c842;
+  font-family: monospace;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  cursor: help;
+}
+
+/* ── Detection signals (#2) ──────────────────────────────── */
+#qb-toast .qb-toast-signals {
+  display: block;
+  font-size: 10px;
+  color: #55556a;
+  margin-top: 2px;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

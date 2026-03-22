@@ -87,7 +87,18 @@
           <option value="researcher">🔬 Researcher</option>
           <option value="writer">✍️ Writer</option>
         </select>
+        <!-- #4: persona prefix preview -->
+        <span class="qb-mode-persona" id="qb-mode-persona" style="display:none;"></span>
       </span>
+    </div>
+
+    <!-- #9: Last boost detail card -->
+    <div class="qb-card qb-card-wide qb-last-boost-detail" id="qb-last-boost-detail-card" style="display:none;">
+      <span class="qb-card-label" style="display:flex;justify-content:space-between;align-items:center;">
+        Last Boost Details
+        <button class="qb-detail-toggle" id="qb-detail-toggle" aria-expanded="false">Show ▾</button>
+      </span>
+      <div id="qb-last-boost-detail" class="qb-last-boost-detail-body" style="display:none;"></div>
     </div>
 
     <!-- How it works blurb -->
@@ -151,7 +162,11 @@
     </div>
 
     <div class="qb-custom-type-picker">
-      <label class="qb-card-label" for="qb-custom-type-select">Query type</label>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+        <label class="qb-card-label" for="qb-custom-type-select">Query type</label>
+        <!-- #5: example button -->
+        <button class="qb-btn qb-btn-ghost qb-btn-xs" id="qb-example-btn" title="Load a starter example into the editor">📋 Use example</button>
+      </div>
       <select class="qb-select" id="qb-custom-type-select">
         <option value="code">Code / Debug</option>
         <option value="explain">Explain / Learn</option>
@@ -187,12 +202,28 @@
       spellcheck="false"
     ></textarea>
 
+    <!-- #3: live preview pane -->
+    <div class="qb-custom-preview-section" id="qb-custom-preview-section">
+      <div class="qb-card-label qb-preview-label-row">
+        Live preview
+        <span class="qb-preview-sample-note">using sample query</span>
+      </div>
+      <div class="qb-custom-preview-box" id="qb-custom-preview-box">Type your wrapper above to see a preview…</div>
+    </div>
+
     <div class="qb-custom-actions">
       <button class="qb-btn qb-btn-primary" id="qb-custom-save">Save</button>
       <button class="qb-btn qb-btn-ghost" id="qb-custom-clear">Reset to default</button>
     </div>
 
     <div class="qb-custom-status" id="qb-custom-status"></div>
+
+    <!-- #7: export / import -->
+    <div class="qb-import-export-row">
+      <button class="qb-btn qb-btn-ghost qb-btn-xs" id="qb-export-btn" title="Download all custom wrappers as JSON">↑ Export JSON</button>
+      <button class="qb-btn qb-btn-ghost qb-btn-xs" id="qb-import-btn" title="Import wrappers from a JSON file">↓ Import JSON</button>
+      <input type="file" id="qb-import-file" accept=".json" style="display:none;" />
+    </div>
 
     <div id="qb-custom-list-section">
       <div class="qb-card-label" style="margin-top:10px;margin-bottom:5px;">Active custom wrappers</div>
@@ -214,6 +245,8 @@
         <div class="qb-ab-row"><span>👍</span><span id="qb-ab-a-up">–</span></div>
         <div class="qb-ab-row"><span>👎</span><span id="qb-ab-a-down">–</span></div>
         <div class="qb-ab-row qb-ab-rate"><span>👍 rate</span><span id="qb-ab-a-rate">–</span></div>
+        <!-- #6: fraction row -->
+        <div class="qb-ab-row qb-ab-fraction"><span>Votes</span><span id="qb-ab-a-fraction" title="thumbs-up / total votes">–</span></div>
       </div>
       <div class="qb-ab-divider"></div>
       <div class="qb-ab-col">
@@ -222,6 +255,8 @@
         <div class="qb-ab-row"><span>👍</span><span id="qb-ab-b-up">–</span></div>
         <div class="qb-ab-row"><span>👎</span><span id="qb-ab-b-down">–</span></div>
         <div class="qb-ab-row qb-ab-rate"><span>👍 rate</span><span id="qb-ab-b-rate">–</span></div>
+        <!-- #6: fraction row -->
+        <div class="qb-ab-row qb-ab-fraction"><span>Votes</span><span id="qb-ab-b-fraction" title="thumbs-up / total votes">–</span></div>
       </div>
     </div>
 
@@ -230,7 +265,31 @@
       <span style="color:#55556a;font-size:11px;">No feedback yet.</span>
     </div>
 
-    <div class="qb-card-label" style="margin-top:14px;margin-bottom:8px;">Recent Feedback</div>
+    <!-- #8: filter controls -->
+    <div class="qb-card-label" style="margin-top:14px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
+      Recent Feedback
+      <div class="qb-feedback-filters">
+        <select class="qb-select qb-select-xs" id="qb-filter-type" aria-label="Filter by type">
+          <option value="">All types</option>
+          <option value="code">Code</option>
+          <option value="explain">Explain</option>
+          <option value="write">Write</option>
+          <option value="analyze">Analyze</option>
+          <option value="data">Data</option>
+          <option value="howto">How-To</option>
+          <option value="local">Local</option>
+          <option value="recommend">Recommend</option>
+          <option value="opinion">Opinion</option>
+          <option value="creative">Creative</option>
+          <option value="default">General</option>
+        </select>
+        <select class="qb-select qb-select-xs" id="qb-filter-variant" aria-label="Filter by variant">
+          <option value="">All variants</option>
+          <option value="A">Variant A</option>
+          <option value="B">Variant B</option>
+        </select>
+      </div>
+    </div>
     <ul class="qb-feedback-log" id="qb-feedback-log">
       <li class="qb-feedback-empty">No feedback recorded yet.</li>
     </ul>
@@ -258,6 +317,7 @@
     <span class="qb-version">v2.0.0</span>
   </footer>
 
+  <script src="src/constants.js"></script>
   <script src="src/popup.js"></script>
 </body>
 </html>

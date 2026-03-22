@@ -96,6 +96,37 @@ def make_logo(size=512):
     img.save(path, "PNG", optimize=True)
     print(f"  ✓  logo.png ({size}×{size})")
 
+
+def _load_font(size):
+    """
+    Fix #14: Robust font loading with a prioritized fallback chain.
+    Tries common system font paths across macOS, Linux, and Windows before
+    falling back to Pillow's built-in default (which exists on all versions).
+    """
+    candidates = [
+        # macOS
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/System/Library/Fonts/SFNSDisplay.ttf",
+        "/Library/Fonts/Arial.ttf",
+        # Linux
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        # Windows
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+    ]
+    for path in candidates:
+        try:
+            return ImageFont.truetype(path, size)
+        except (IOError, OSError):
+            continue
+    # Last resort: Pillow built-in (Pillow ≥ 10 accepts size=)
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
+
+
 def make_social_preview(width=1280, height=640):
     """Generates the 1280x640 social-preview.png"""
     img = Image.new("RGB", (width, height), BG_COLOR)
@@ -107,13 +138,9 @@ def make_social_preview(width=1280, height=640):
     logo_cy = height / 2
     draw_q_logo(draw, logo_size, (logo_cx, logo_cy))
 
-    # Draw text on the right
-    try:
-        title_font = ImageFont.truetype("arialbd.ttf", 80)
-        tag_font = ImageFont.truetype("arial.ttf", 36)
-    except IOError:
-        title_font = ImageFont.load_default(size=80)
-        tag_font = ImageFont.load_default(size=36)
+    # Draw text on the right using the robust font loader
+    title_font = _load_font(80)
+    tag_font   = _load_font(36)
 
     text_x = width * 0.52
     draw.text((text_x, height/2 - 70), "QueryBoost", font=title_font, fill=TEXT_COLOR)

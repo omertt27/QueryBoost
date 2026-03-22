@@ -26,7 +26,7 @@
         "https://www.perplexity.ai/*",
         "https://perplexity.ai/*"
       ],
-      "js": ["src/content.js"],
+      "js": ["src/constants.js", "src/content.js"],
       "css": ["src/toast.css"],
       "run_at": "document_idle"
     }

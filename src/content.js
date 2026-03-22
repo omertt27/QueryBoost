@@ -1,5 +1,5 @@
 /**
- * QueryBoost — Content Script v2.0
+ * QueryBoost — Content Script v2.1
  * Intercepts queries on AI platforms and wraps them with smart enhancement prompts.
  *
  * Platform notes:
@@ -8,13 +8,16 @@
  *  - Gemini:    Quill .ql-editor inside <rich-textarea> (sometimes shadow DOM)
  *  - Perplexity: migrated from <textarea> to contenteditable div in late 2024
  *
- * Features (v2.0):
+ * Features (v2.1):
  *  - Per-platform wrapper tuning (tone/structure adapted per AI)
  *  - Domain mode / persona (developer, student, researcher, writer, general)
- *  - Smart session cache (skip re-processing identical queries in same session)
+ *  - Smart session cache with LRU cap (skip re-processing identical queries)
  *  - Feedback loop (👍/👎 on toast → stored in chrome.storage.local)
  *  - A/B testing (two wrapper variants randomly assigned, engagement tracked)
  *  - Wrapper transparency toggle (reveal injected wrapper text in toast)
+ *  - Gemini shadow DOM re-attachment observer
+ *  - Pre-compiled signal rule regexes
+ *  - Selection API text insertion (no deprecated execCommand)
  */
 
 (function () {
@@ -25,16 +28,18 @@
   window.__qbLoaded = true;
 
   // ─── Constants ────────────────────────────────────────────────────────────
+  // Storage keys are defined in src/constants.js (loaded first via manifest).
+  // QB_KEYS is available as a global from that file.
 
-  const STORAGE_KEY_ENABLED     = 'qb_enabled';
-  const STORAGE_KEY_LAST_TYPE   = 'qb_last_type';
-  const STORAGE_KEY_COUNT       = 'qb_boost_count';
-  const STORAGE_KEY_DOMAIN_MODE = 'qb_domain_mode';
-  const STORAGE_KEY_TRANSPARENCY= 'qb_transparency';
-  const STORAGE_KEY_AB_VARIANT  = 'qb_ab_variant';
-  const STORAGE_KEY_FEEDBACK    = 'qb_feedback';
-  const STORAGE_KEY_AB_STATS    = 'qb_ab_stats';
-  const STORAGE_KEY_CUSTOM_WRAP = 'qb_custom_wrappers';
+  const STORAGE_KEY_ENABLED     = QB_KEYS.ENABLED;
+  const STORAGE_KEY_LAST_TYPE   = QB_KEYS.LAST_TYPE;
+  const STORAGE_KEY_COUNT       = QB_KEYS.COUNT;
+  const STORAGE_KEY_DOMAIN_MODE = QB_KEYS.DOMAIN_MODE;
+  const STORAGE_KEY_TRANSPARENCY= QB_KEYS.TRANSPARENCY;
+  const STORAGE_KEY_AB_VARIANT  = QB_KEYS.AB_VARIANT;
+  const STORAGE_KEY_FEEDBACK    = QB_KEYS.FEEDBACK;
+  const STORAGE_KEY_AB_STATS    = QB_KEYS.AB_STATS;
+  const STORAGE_KEY_CUSTOM_WRAP = QB_KEYS.CUSTOM_WRAP;
 
   const TOAST_DURATION_MS = 4000;
   const SUBMIT_DELAY_MS   = 150;
@@ -484,6 +489,15 @@
     ],
   };
 
+  // ─── Fix #5: Pre-compile all token rules into RegExp at load time ─────────
+  for (const rules of Object.values(SIGNAL_RULES)) {
+    for (const rule of rules) {
+      if (rule.type === 'token') {
+        rule._re = new RegExp('\\b' + rule.p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+      }
+    }
+  }
+
   const TYPE_LABELS = {
     code:      'Code / Debug',
     explain:   'Explain / Learn',
@@ -651,17 +665,28 @@
 
     const scores = { data: 0, code: 0, explain: 0, analyze: 0, write: 0, howto: 0, local: 0, recommend: 0, opinion: 0, creative: 0 };
 
+    // #2: Collect top matched signals (phrases/tokens with weight ≥ 3)
+    const matchedSignals = [];
+
     for (const [category, rules] of Object.entries(SIGNAL_RULES)) {
       for (const rule of rules) {
         let matched = false;
         switch (rule.type) {
           case 'phrase':  matched = trimmed.includes(rule.p); break;
           case 'prefix':  matched = trimmed.startsWith(rule.p); break;
-          case 'token':   matched = new RegExp('\\b' + rule.p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(trimmed); break;
+          case 'token':   matched = rule._re.test(trimmed); break;
           case 'regex':   matched = rule.r.test(trimmed); break;
           case 'negex':   if (rule.r.test(trimmed)) scores[category] -= rule.w; continue;
         }
-        if (matched) scores[category] += rule.w;
+        if (matched) {
+          scores[category] += rule.w;
+          if (rule.w >= 3 && matchedSignals.length < 3) {
+            const label = rule.p
+              ? '"' + rule.p.slice(0, 22) + '"'
+              : rule.r ? rule.r.source.replace(/\\b|\\s\+|\.\{.*?\}|\(\?:.*?\)|[()[\]]/g, '').replace(/\|/g, '/').slice(0, 22) : null;
+            if (label && !matchedSignals.includes(label)) matchedSignals.push(label);
+          }
+        }
       }
     }
 
@@ -669,15 +694,24 @@
     for (const [cat, score] of Object.entries(scores)) {
       if (score > bestScore) { bestScore = score; best = cat; }
     }
-    return { type: best, score: bestScore };
+    return { type: best, score: bestScore, signals: matchedSignals };
   }
 
   // ─── Session Cache ────────────────────────────────────────────────────────
   //
-  // Simple hash → enhanced text map. Keyed by a FNV-1a 32-bit hash of the
-  // raw query + mode context. Lives only for this page session (page reload clears it).
+  // Fix #6: LRU-capped Map (max 100 entries). On overflow the oldest entry
+  // (first inserted) is evicted, which is the natural Map insertion order.
 
-  const sessionCache = new Map(); // hash → { enhanced, type, label }
+  const SESSION_CACHE_MAX = 100;
+  const sessionCache = new Map();
+
+  function cacheSet(key, value) {
+    if (sessionCache.size >= SESSION_CACHE_MAX) {
+      // Evict the oldest (first) entry
+      sessionCache.delete(sessionCache.keys().next().value);
+    }
+    sessionCache.set(key, value);
+  }
 
   function fnv32a(str) {
     let h = 0x811c9dc5;
@@ -714,7 +748,7 @@
       return { ...cached, fromCache: true };
     }
 
-    const { type, score } = detectQueryTypeWithScore(q);
+    const { type, score, signals } = detectQueryTypeWithScore(q);
 
     if (score < MIN_SCORE && type === 'default') {
       return { enhanced: q, type: 'passthrough', label: 'Low confidence', skipped: true };
@@ -725,8 +759,8 @@
       const tpl = customWraps[type];
       const enhanced = tpl.replace(/\{\{query\}\}/gi, q)
                           .replace(/\{\{QUERY\}\}/g, q);
-      const result = { enhanced, type, label: TYPE_LABELS[type], skipped: false, variant: 'custom' };
-      sessionCache.set(key, result);
+      const result = { enhanced, type, label: TYPE_LABELS[type], skipped: false, variant: 'custom', signals: signals || [] };
+      cacheSet(key, result);
       return result;
     }
 
@@ -759,8 +793,8 @@
         : enhanced + platSuffix;
     }
 
-    const result = { enhanced, type, label: TYPE_LABELS[type], skipped: false, variant: abVariant || 'A' };
-    sessionCache.set(key, result);
+    const result = { enhanced, type, label: TYPE_LABELS[type], skipped: false, variant: abVariant || 'A', signals: signals || [] };
+    cacheSet(key, result);
     return result;
   }
 
@@ -810,9 +844,12 @@
 
   // ─── Text Read / Write ────────────────────────────────────────────────────
 
+  // Fix #8: Determine rich-text vs textarea at runtime per element
   function elementIsRichText(el) {
-    if (config.isRichText !== null) return config.isRichText;
-    return el.getAttribute('contenteditable') === 'true';
+    if (config.isRichText === true)  return true;
+    if (config.isRichText === false) return false;
+    // null → runtime probe: textarea elements are never contenteditable
+    return el.tagName !== 'TEXTAREA' && el.getAttribute('contenteditable') === 'true';
   }
 
   function getInputText(el) {
@@ -820,31 +857,48 @@
     return el.value || '';
   }
 
+  // Fix #2: Replace deprecated execCommand with Selection API for contenteditable,
+  // and use the native value-setter for textarea elements.
   function setInputText(el, text) {
     if (!elementIsRichText(el)) {
-      const proto  = window.HTMLTextAreaElement.prototype;
-      const setter = Object.getOwnPropertyDescriptor(proto, 'value');
-      if (setter && setter.set) setter.set.call(el, text);
+      // Plain <textarea> — use React's native setter so React state updates
+      const proto  = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
+      if (proto && proto.set) proto.set.call(el, text);
       el.dispatchEvent(new Event('input',  { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
       return;
     }
 
+    // Contenteditable — use Selection API (replaces deprecated execCommand)
     el.focus();
 
-    const selAllOk = document.execCommand('selectAll', false, null);
-    if (!selAllOk) {
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      const sel = window.getSelection();
+    // Select all existing content
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    if (sel) {
       sel.removeAllRanges();
       sel.addRange(range);
     }
 
-    const insertOk = document.execCommand('insertText', false, text);
-    if (!insertOk) {
-      el.innerHTML = '';
-      el.textContent = text;
+    // Insert new text via DataTransfer so the host framework sees a real paste
+    const dt = new DataTransfer();
+    dt.setData('text/plain', text);
+    const pasteEvent = new ClipboardEvent('paste', {
+      bubbles: true, cancelable: true, clipboardData: dt,
+    });
+
+    // Try native paste event first (works on ChatGPT/Claude)
+    const handled = el.dispatchEvent(pasteEvent);
+
+    // Fallback: if the host didn't intercept the paste, write directly
+    if (handled) {
+      // Some frameworks don't act on the paste event — verify the change happened
+      const current = el.innerText || el.textContent || '';
+      if (current.trim() !== text.trim()) {
+        el.innerHTML = '';
+        el.textContent = text;
+      }
     }
 
     el.dispatchEvent(new InputEvent('input', {
@@ -856,19 +910,22 @@
 
   // ─── Submit ───────────────────────────────────────────────────────────────
 
-  function triggerSubmit(inputEl) {
+  // Fix #1: Accept a callback so triggerSubmit fires only after setInputText
+  // has fully settled, preventing the race where the original text gets sent.
+  function triggerSubmit(inputEl, onDone) {
     setTimeout(function () {
       const btn = findSendButton();
       if (btn && !btn.disabled) {
         btn.click();
-        return;
+      } else {
+        ['keydown', 'keypress', 'keyup'].forEach(function (type) {
+          inputEl.dispatchEvent(new KeyboardEvent(type, {
+            key: 'Enter', code: 'Enter', keyCode: 13,
+            which: 13, bubbles: true, cancelable: true,
+          }));
+        });
       }
-      ['keydown', 'keypress', 'keyup'].forEach(function (type) {
-        inputEl.dispatchEvent(new KeyboardEvent(type, {
-          key: 'Enter', code: 'Enter', keyCode: 13,
-          which: 13, bubbles: true, cancelable: true,
-        }));
-      });
+      if (onDone) onDone();
     }, SUBMIT_DELAY_MS);
   }
 
@@ -905,11 +962,47 @@
     trackABEngagement(variant, signal === 'up' ? 'thumbs_up' : 'thumbs_down');
   }
 
+  // ─── Skip Toast (#1) ──────────────────────────────────────────────────────
+
+  function showSkipToast(reason) {
+    const existing = document.getElementById('qb-toast');
+    if (existing) return; // don't interrupt a real toast
+
+    const toast = document.createElement('div');
+    toast.id = 'qb-toast';
+    toast.className = 'qb-toast-skip';
+    toast.setAttribute('role', 'status');
+
+    toast.innerHTML =
+      '<div class="qb-toast-main">' +
+        '<span class="qb-toast-icon qb-toast-icon-dim">⚡</span>' +
+        '<div class="qb-toast-text">' +
+          '<span class="qb-toast-title qb-toast-title-dim">Boost skipped</span>' +
+          '<span class="qb-toast-type">' + reason + '</span>' +
+        '</div>' +
+        '<button class="qb-toast-close" aria-label="Dismiss">✕</button>' +
+      '</div>';
+
+    document.body.appendChild(toast);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { toast.classList.add('qb-toast-visible'); });
+    });
+
+    function dismissSkip() {
+      toast.classList.remove('qb-toast-visible');
+      toast.classList.add('qb-toast-hiding');
+      setTimeout(function () { if (toast.isConnected) toast.remove(); }, 350);
+    }
+
+    toast.querySelector('.qb-toast-close').addEventListener('click', dismissSkip);
+    setTimeout(dismissSkip, 2500);
+  }
+
   // ─── Toast ────────────────────────────────────────────────────────────────
 
   let toastTimer = null;
 
-  function showToast(typeLabel, original, enhanced, queryType, variant) {
+  function showToast(typeLabel, original, enhanced, queryType, variant, fromCache, signals) {
     const existing = document.getElementById('qb-toast');
     if (existing) existing.remove();
     if (toastTimer) clearTimeout(toastTimer);
@@ -927,8 +1020,11 @@
     const boostSnippet  = enhanced.length  > 220 ? enhanced.slice(0, 220)  + '…' : enhanced;
     const wrapperSnippet= wrapperText.length > 200 ? wrapperText.slice(0, 200) + '…' : wrapperText;
 
-    const variantBadge = `<span class="qb-ab-badge">v${variant || 'A'}</span>`;
-    const cacheBadgeHTML = '';  // shown only from caller if fromCache
+    const variantBadge  = '<span class="qb-ab-badge">v' + (variant || 'A') + '</span>';
+    const cacheBadge    = fromCache ? '<span class="qb-cache-badge" title="Result from session cache">cached</span>' : '';
+    const signalsHTML   = (signals && signals.length)
+      ? '<span class="qb-toast-signals">Matched: ' + signals.slice(0, 2).join(', ') + '</span>'
+      : '';
 
     const toast = document.createElement('div');
     toast.id = 'qb-toast';
@@ -938,8 +1034,8 @@
       '<div class="qb-toast-main">' +
         '<span class="qb-toast-icon">⚡</span>' +
         '<div class="qb-toast-text">' +
-          '<span class="qb-toast-title">Query boosted ' + variantBadge + '</span>' +
-          '<span class="qb-toast-type">' + typeLabel + '</span>' +
+          '<span class="qb-toast-title">Query boosted ' + variantBadge + cacheBadge + '</span>' +
+          '<span class="qb-toast-type">' + typeLabel + signalsHTML + '</span>' +
         '</div>' +
         '<button class="qb-toast-peek" title="See what was added">' +
           '<svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C5 3 1.73 7.11 1.05 9.77a1 1 0 000 .46C1.73 12.89 5 17 10 17s8.27-4.11 8.95-6.77a1 1 0 000-.46C18.27 7.11 15 3 10 3zm0 11a4 4 0 110-8 4 4 0 010 8zm0-6a2 2 0 100 4 2 2 0 000-4z"/></svg>' +
@@ -1047,44 +1143,68 @@
 
     isProcessing = true;
 
+    var result;
     try {
-      var result = buildEnhancedQuery(rawText);
-
-      if (result.skipped) {
-        isProcessing = false;
-        return;
-      }
-
-      var enhanced = result.enhanced;
-      var label    = result.label;
-      var variant  = result.variant || abVariant || 'A';
-
-      chrome.storage.sync.set({
-        qb_last_type:      label,
-        qb_platform:       PLATFORM,
-        qb_last_boost_ts:  Date.now(),
-      });
-
-      // Increment lifetime boost counter
-      chrome.storage.sync.get(STORAGE_KEY_COUNT, (r) => {
-        const prev = (typeof r[STORAGE_KEY_COUNT] === 'number') ? r[STORAGE_KEY_COUNT] : 0;
-        chrome.storage.sync.set({ [STORAGE_KEY_COUNT]: prev + 1 });
-      });
-
-      // Track A/B send event
-      if (variant !== 'custom') {
-        trackABEngagement(variant, 'sent');
-      }
-
-      setInputText(inputEl, enhanced);
-      showToast(label, rawText, enhanced, result.type, variant);
-      triggerSubmit(inputEl);
-
+      result = buildEnhancedQuery(rawText);
     } catch (err) {
-      console.debug('[QueryBoost] silent fail:', err);
-    } finally {
-      setTimeout(function () { isProcessing = false; }, SUBMIT_DELAY_MS + 300);
+      console.debug('[QueryBoost] buildEnhancedQuery failed:', err);
+      isProcessing = false;
+      return;
     }
+
+    if (result.skipped) {
+      isProcessing = false;
+      var skipReasons = {
+        'Follow-up':      'Follow-up detected — sent as-is',
+        'Too short':      'Query too short — sent as-is',
+        'Low confidence': 'Type unclear — sent as-is',
+      };
+      showSkipToast(skipReasons[result.label] || 'Sent as-is');
+      return;
+    }
+
+    var enhanced = result.enhanced;
+    var label    = result.label;
+    var variant  = result.variant || abVariant || 'A';
+
+    // Fix #4: Increment counter and track A/B *before* triggering submit.
+    // All async storage ops are kicked off together; isProcessing is cleared
+    // only in the triggerSubmit callback, after the click/keypress has fired.
+    chrome.storage.sync.get(QB_KEYS.COUNT, function (r) {
+      var prev = (typeof r[QB_KEYS.COUNT] === 'number') ? r[QB_KEYS.COUNT] : 0;
+      chrome.storage.sync.set({
+        [QB_KEYS.LAST_TYPE]:     label,
+        [QB_KEYS.PLATFORM]:      PLATFORM,
+        [QB_KEYS.LAST_BOOST_TS]: Date.now(),
+        [QB_KEYS.COUNT]:         prev + 1,
+      });
+    });
+
+    // #9: Store last boost info for popup re-display
+    chrome.storage.local.set({
+      [QB_KEYS.LAST_BOOST_INFO]: {
+        label:    label,
+        type:     result.type,
+        original: rawText.slice(0, 300),
+        variant:  variant,
+        platform: PLATFORM,
+        mode:     domainMode,
+        ts:       Date.now(),
+      },
+    });
+
+    if (variant !== 'custom') {
+      trackABEngagement(variant, 'sent');
+    }
+
+    // Fix #1: setInputText first, show toast, then submit — all in sequence.
+    setInputText(inputEl, enhanced);
+    showToast(label, rawText, enhanced, result.type, variant, result.fromCache, result.signals);
+
+    // triggerSubmit fires after SUBMIT_DELAY_MS; isProcessing cleared in callback
+    triggerSubmit(inputEl, function () {
+      isProcessing = false;
+    });
   }
 
   // ─── Attach Listeners ─────────────────────────────────────────────────────
@@ -1127,12 +1247,38 @@
     attachListeners(inputEl, sendBtn);
   }
 
+  // Document-level observer catches most DOM changes
   var observer = new MutationObserver(function () {
     clearTimeout(debounce);
     debounce = setTimeout(tryAttach, 250);
   });
 
   observer.observe(document.documentElement, { childList: true, subtree: true });
+
+  // Fix #3: Gemini's <rich-textarea> mounts its editor inside a shadow root.
+  // Mutations inside shadow DOM don't bubble to the document observer, so we
+  // attach a second observer directly on each rich-textarea's shadow root
+  // once it appears in the document.
+  if (PLATFORM === 'gemini') {
+    var observedShadowRoots = new WeakSet();
+
+    function watchGeminiShadows() {
+      document.querySelectorAll('rich-textarea').forEach(function (rt) {
+        var root = rt.shadowRoot;
+        if (!root || observedShadowRoots.has(root)) return;
+        observedShadowRoots.add(root);
+        new MutationObserver(function () {
+          clearTimeout(debounce);
+          debounce = setTimeout(tryAttach, 250);
+        }).observe(root, { childList: true, subtree: true });
+      });
+    }
+
+    // Run immediately and also on each document mutation (new rich-textarea may appear)
+    watchGeminiShadows();
+    new MutationObserver(watchGeminiShadows)
+      .observe(document.documentElement, { childList: true, subtree: true });
+  }
 
   tryAttach();
   setTimeout(tryAttach, 800);
