@@ -23,6 +23,7 @@ const STORAGE_KEY_FEEDBACK     = QB_KEYS.FEEDBACK;
 const STORAGE_KEY_AB_STATS     = QB_KEYS.AB_STATS;
 const STORAGE_KEY_CUSTOM_WRAP  = QB_KEYS.CUSTOM_WRAP;
 const STORAGE_KEY_LAST_BOOST_TS= QB_KEYS.LAST_BOOST_TS;
+const STORAGE_KEY_CONFIRM_MODE = QB_KEYS.CONFIRM_MODE;
 
 // ── Platform display config ───────────────────────────────
 
@@ -62,6 +63,7 @@ const boostCountEl        = document.getElementById('qb-boost-count');
 const domainSelect        = document.getElementById('qb-domain-select');
 const modeDescEl          = document.getElementById('qb-mode-desc');
 const transparencyInput   = document.getElementById('qb-transparency-input');
+const confirmInput        = document.getElementById('qb-confirm-input');
 const abVariantPill       = document.getElementById('qb-ab-variant-pill');
 const resetFeedbackBtn    = document.getElementById('qb-reset-feedback');
 const customTypeSelect    = document.getElementById('qb-custom-type-select');
@@ -164,6 +166,10 @@ function renderDomainMode(mode) {
 
 function renderTransparency(val) {
   if (transparencyInput) transparencyInput.checked = !!val;
+}
+
+function renderConfirmMode(val) {
+  if (confirmInput) confirmInput.checked = val !== false; // default true
 }
 
 function renderABVariant(variant) {
@@ -448,7 +454,7 @@ function init() {
   chrome.storage.sync.get(
     [STORAGE_KEY_ENABLED, STORAGE_KEY_LAST_TYPE, STORAGE_KEY_PLATFORM,
      STORAGE_KEY_COUNT, STORAGE_KEY_DOMAIN_MODE, STORAGE_KEY_TRANSPARENCY,
-     STORAGE_KEY_AB_VARIANT, STORAGE_KEY_LAST_BOOST_TS],
+     STORAGE_KEY_AB_VARIANT, STORAGE_KEY_LAST_BOOST_TS, STORAGE_KEY_CONFIRM_MODE],
     (result) => {
       const enabled     = result[STORAGE_KEY_ENABLED]     !== false;
       const lastType    = result[STORAGE_KEY_LAST_TYPE]   || null;
@@ -458,12 +464,14 @@ function init() {
       const transp      = result[STORAGE_KEY_TRANSPARENCY] === true;
       const abVariant   = result[STORAGE_KEY_AB_VARIANT]  || null;
       const lastBoostTs = result[STORAGE_KEY_LAST_BOOST_TS] || null;
+      const confirmMode = result[STORAGE_KEY_CONFIRM_MODE] !== false;
 
       renderToggle(enabled);
       renderLastType(lastType);
       renderCount(count);
       renderDomainMode(mode);
       renderTransparency(transp);
+      renderConfirmMode(confirmMode);
       renderABVariant(abVariant);
       renderLastBoostTime(lastBoostTs);
 
@@ -525,6 +533,14 @@ if (transparencyInput) {
   });
 }
 
+// ── Confirm mode toggle ───────────────────────────────────
+
+if (confirmInput) {
+  confirmInput.addEventListener('change', () => {
+    chrome.storage.sync.set({ [STORAGE_KEY_CONFIRM_MODE]: confirmInput.checked });
+  });
+}
+
 // ── Storage change listener (live updates) ────────────────
 // Fix #10: Single consolidated handler so every key change refreshes all
 // derived UI, keeping the popup consistent during active boost sessions.
@@ -539,6 +555,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     if (changes[STORAGE_KEY_TRANSPARENCY]) renderTransparency(changes[STORAGE_KEY_TRANSPARENCY].newValue);
     if (changes[STORAGE_KEY_AB_VARIANT])   renderABVariant(changes[STORAGE_KEY_AB_VARIANT].newValue);
     if (changes[STORAGE_KEY_LAST_BOOST_TS]) renderLastBoostTime(changes[STORAGE_KEY_LAST_BOOST_TS].newValue);
+    if (changes[STORAGE_KEY_CONFIRM_MODE]) renderConfirmMode(changes[STORAGE_KEY_CONFIRM_MODE].newValue);
   }
 });
 

@@ -124,6 +124,22 @@
   <!-- ═══ TAB: SETTINGS ═══ -->
   <main class="qb-body qb-panel qb-panel-hidden" id="panel-settings">
 
+    <!-- Confirm Mode Toggle (ON by default) -->
+    <div class="qb-toggle-row" style="border:1px solid rgba(0,225,170,0.22);border-radius:10px;padding:10px 12px;background:rgba(0,225,170,0.04);margin-bottom:4px;">
+      <div class="qb-toggle-label">
+        <span class="qb-toggle-label-main" style="color:#00e1aa;">✦ Confirm Before Sending</span>
+        <span class="qb-toggle-label-sub">Show a before/after preview and approve every boost</span>
+      </div>
+      <label class="qb-toggle" aria-label="Toggle confirm mode">
+        <input type="checkbox" id="qb-confirm-input" checked />
+        <span class="qb-toggle-track"></span>
+      </label>
+    </div>
+    <div style="font-size:10px;color:#55556a;padding:0 2px 8px;line-height:1.5;">
+      When ON: a modal shows your original vs enhanced query — you choose what to send.<br>
+      When OFF: queries are enhanced and submitted automatically (silent mode).
+    </div>
+
     <!-- Transparency Toggle -->
     <div class="qb-toggle-row">
       <div class="qb-toggle-label">

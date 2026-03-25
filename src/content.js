@@ -40,6 +40,7 @@
   const STORAGE_KEY_FEEDBACK    = QB_KEYS.FEEDBACK;
   const STORAGE_KEY_AB_STATS    = QB_KEYS.AB_STATS;
   const STORAGE_KEY_CUSTOM_WRAP = QB_KEYS.CUSTOM_WRAP;
+  const STORAGE_KEY_CONFIRM_MODE= QB_KEYS.CONFIRM_MODE;
 
   const TOAST_DURATION_MS = 4000;
   const SUBMIT_DELAY_MS   = 150;
@@ -133,14 +134,17 @@
   let transparency = false;          // show injected wrapper in toast
   let abVariant    = null;           // 'A' | 'B'
   let customWraps  = {};             // { [type]: string } user-written templates
+  let confirmMode  = true;           // show before/after confirm modal before submitting
 
   chrome.storage.sync.get(
-    [STORAGE_KEY_ENABLED, STORAGE_KEY_DOMAIN_MODE, STORAGE_KEY_TRANSPARENCY, STORAGE_KEY_AB_VARIANT, STORAGE_KEY_CUSTOM_WRAP],
+    [STORAGE_KEY_ENABLED, STORAGE_KEY_DOMAIN_MODE, STORAGE_KEY_TRANSPARENCY,
+     STORAGE_KEY_AB_VARIANT, STORAGE_KEY_CUSTOM_WRAP, STORAGE_KEY_CONFIRM_MODE],
     (r) => {
       isEnabled    = r[STORAGE_KEY_ENABLED]    !== false;
       domainMode   = r[STORAGE_KEY_DOMAIN_MODE]  || 'general';
       transparency = r[STORAGE_KEY_TRANSPARENCY] === true;
       customWraps  = r[STORAGE_KEY_CUSTOM_WRAP]  || {};
+      confirmMode  = r[STORAGE_KEY_CONFIRM_MODE] !== false; // default true
       // Assign A/B variant once per install, persist it
       if (r[STORAGE_KEY_AB_VARIANT]) {
         abVariant = r[STORAGE_KEY_AB_VARIANT];
@@ -153,10 +157,11 @@
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'sync') return;
-    if (STORAGE_KEY_ENABLED     in changes) isEnabled    = changes[STORAGE_KEY_ENABLED].newValue    !== false;
-    if (STORAGE_KEY_DOMAIN_MODE in changes) domainMode   = changes[STORAGE_KEY_DOMAIN_MODE].newValue || 'general';
+    if (STORAGE_KEY_ENABLED      in changes) isEnabled    = changes[STORAGE_KEY_ENABLED].newValue    !== false;
+    if (STORAGE_KEY_DOMAIN_MODE  in changes) domainMode   = changes[STORAGE_KEY_DOMAIN_MODE].newValue || 'general';
     if (STORAGE_KEY_TRANSPARENCY in changes) transparency = changes[STORAGE_KEY_TRANSPARENCY].newValue === true;
-    if (STORAGE_KEY_CUSTOM_WRAP in changes) customWraps  = changes[STORAGE_KEY_CUSTOM_WRAP].newValue  || {};
+    if (STORAGE_KEY_CUSTOM_WRAP  in changes) customWraps  = changes[STORAGE_KEY_CUSTOM_WRAP].newValue  || {};
+    if (STORAGE_KEY_CONFIRM_MODE in changes) confirmMode  = changes[STORAGE_KEY_CONFIRM_MODE].newValue !== false;
   });
 
   // ─── Query Type Detection — Weighted Multi-Signal Scoring ────────────────
@@ -655,9 +660,14 @@
   };
 
   // ─── Confidence Threshold ─────────────────────────────────────────────────
+  //
+  // MIN_SCORE: minimum score for a *named* category to win over 'default'.
+  // When no category scores above this, the query falls through to the general
+  // 'default' wrapper — which is always applied (score 0 is fine for default).
+  // We no longer skip on low confidence: every query ≥ MIN_LENGTH gets enhanced.
 
-  const MIN_SCORE  = 3;
-  const MIN_LENGTH = 15;
+  const MIN_SCORE  = 2;   // must beat this to win a named category over default
+  const MIN_LENGTH = 15;  // queries shorter than this are skipped (too vague)
 
   function detectQueryTypeWithScore(rawText) {
     const text    = rawText.toLowerCase().trim();
@@ -750,9 +760,9 @@
 
     const { type, score, signals } = detectQueryTypeWithScore(q);
 
-    if (score < MIN_SCORE && type === 'default') {
-      return { enhanced: q, type: 'passthrough', label: 'Low confidence', skipped: true };
-    }
+    // If no named category scored above MIN_SCORE the scorer returns 'default'.
+    // We always enhance with the default wrapper — never skip on low confidence.
+    // (Only follow-ups and very short queries are skipped, handled above.)
 
     // 4. Check for user-defined custom wrapper
     if (customWraps[type]) {
@@ -1151,6 +1161,132 @@
     toastTimer = setTimeout(dismiss, TOAST_DURATION_MS);
   }
 
+  // ─── Confirm Modal ────────────────────────────────────────────────────────
+  //
+  // When confirmMode is ON, this modal shows a before/after comparison and
+  // waits for the user to press "Send Enhanced", "Send Original", or "Cancel".
+  // Calling code passes onSendEnhanced / onSendOriginal / onCancel callbacks.
+  // The "Don't show again" checkbox writes false to STORAGE_KEY_CONFIRM_MODE.
+
+  function showConfirmModal(original, enhanced, typeLabel, onSendEnhanced, onSendOriginal, onCancel) {
+    // Remove any existing overlay
+    var existing = document.getElementById('qb-confirm-overlay');
+    if (existing) existing.remove();
+
+    function esc(s) {
+      return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // Extract just the injected wrapper (the part after the separator)
+    var sepIdx   = enhanced.indexOf('\n\n---\n');
+    var addedText = sepIdx >= 0 ? enhanced.slice(sepIdx + 6) : '';
+
+    var origSnippet    = original.length  > 400 ? original.slice(0, 400)  + '…' : original;
+    var enhSnippet     = enhanced.length  > 600 ? enhanced.slice(0, 600)  + '…' : enhanced;
+    var addedSnippet   = addedText.length > 400 ? addedText.slice(0, 400) + '…' : addedText;
+
+    var overlay = document.createElement('div');
+    overlay.id = 'qb-confirm-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'QueryBoost — Review Enhanced Query');
+
+    overlay.innerHTML =
+      '<div id="qb-confirm-modal">' +
+        '<div class="qbcm-header">' +
+          '<span class="qbcm-icon">⚡</span>' +
+          '<span class="qbcm-title">Your query was enhanced</span>' +
+          '<span class="qbcm-badge">' + esc(typeLabel) + '</span>' +
+        '</div>' +
+
+        '<div class="qbcm-panels">' +
+          '<div class="qbcm-panel qbcm-panel-original">' +
+            '<span class="qbcm-panel-label">Original</span>' +
+            '<div class="qbcm-panel-text">' + esc(origSnippet) + '</div>' +
+          '</div>' +
+          '<div class="qbcm-panel qbcm-panel-enhanced">' +
+            '<span class="qbcm-panel-label">Enhanced ✦</span>' +
+            '<div class="qbcm-panel-text">' + esc(enhSnippet) + '</div>' +
+          '</div>' +
+        '</div>' +
+
+        (addedText
+          ? '<div class="qbcm-added">' +
+              '<span class="qbcm-added-label">What was added</span>' +
+              '<div class="qbcm-added-text">' + esc(addedSnippet) + '</div>' +
+            '</div>'
+          : '') +
+
+        '<div class="qbcm-footer">' +
+          '<button class="qbcm-btn qbcm-btn-send" id="qbcm-send-enhanced">⚡ Send Enhanced</button>' +
+          '<button class="qbcm-btn qbcm-btn-original" id="qbcm-send-original">Send Original</button>' +
+          '<button class="qbcm-btn qbcm-btn-cancel" id="qbcm-cancel">Cancel</button>' +
+          '<label class="qbcm-silent-row">' +
+            '<input type="checkbox" id="qbcm-silent-checkbox" />' +
+            '<span class="qbcm-silent-label">Don\'t show this again (switch to silent mode)</span>' +
+          '</label>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+
+    // Animate in
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        overlay.classList.add('qb-overlay-visible');
+      });
+    });
+
+    function closeOverlay() {
+      overlay.classList.remove('qb-overlay-visible');
+      setTimeout(function () { if (overlay.isConnected) overlay.remove(); }, 280);
+    }
+
+    function maybeDisableConfirm() {
+      var cb = document.getElementById('qbcm-silent-checkbox');
+      if (cb && cb.checked) {
+        confirmMode = false;
+        chrome.storage.sync.set({ [STORAGE_KEY_CONFIRM_MODE]: false });
+      }
+    }
+
+    document.getElementById('qbcm-send-enhanced').addEventListener('click', function () {
+      maybeDisableConfirm();
+      closeOverlay();
+      if (onSendEnhanced) onSendEnhanced();
+    });
+
+    document.getElementById('qbcm-send-original').addEventListener('click', function () {
+      maybeDisableConfirm();
+      closeOverlay();
+      if (onSendOriginal) onSendOriginal();
+    });
+
+    document.getElementById('qbcm-cancel').addEventListener('click', function () {
+      closeOverlay();
+      if (onCancel) onCancel();
+    });
+
+    // Close on overlay click (outside modal)
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) {
+        closeOverlay();
+        if (onCancel) onCancel();
+      }
+    });
+
+    // Close on Escape
+    function onKeyDown(e) {
+      if (e.key === 'Escape') {
+        document.removeEventListener('keydown', onKeyDown, true);
+        closeOverlay();
+        if (onCancel) onCancel();
+      }
+    }
+    document.addEventListener('keydown', onKeyDown, true);
+  }
+
   // ─── Core Handler ─────────────────────────────────────────────────────────
 
   var isProcessing = false;
@@ -1228,25 +1364,44 @@
       trackABEngagement(variant, 'sent');
     }
 
-    // Write the enhanced text, show the toast, then verify the write succeeded
-    // before submitting. Retries up to 3× with 60 ms gaps for slow React renders.
-    setInputText(inputEl, enhanced);
-    showToast(label, rawText, enhanced, result.type, variant, result.fromCache, result.signals);
+    // ── Helper: write enhanced text and fire submit ───────────────────────
+    function doSendEnhanced() {
+      setInputText(inputEl, enhanced);
+      showToast(label, rawText, enhanced, result.type, variant, result.fromCache, result.signals);
 
-    var verifyAttempts = 0;
-    function verifyAndSubmit() {
-      verifyAttempts++;
-      var current = getInputText(inputEl).trim();
-      var verified = current.indexOf('Do not mention these instructions') !== -1;
-      if (!verified && verifyAttempts < 3) {
-        setInputText(inputEl, enhanced);
-        setTimeout(verifyAndSubmit, 60);
-        return;
+      var verifyAttempts = 0;
+      function verifyAndSubmit() {
+        verifyAttempts++;
+        var current = getInputText(inputEl).trim();
+        var verified = current.indexOf('Do not mention these instructions') !== -1;
+        if (!verified && verifyAttempts < 3) {
+          setInputText(inputEl, enhanced);
+          setTimeout(verifyAndSubmit, 60);
+          return;
+        }
+        triggerSubmit(inputEl, function () { isProcessing = false; });
       }
+      setTimeout(verifyAndSubmit, SUBMIT_DELAY_MS);
+    }
+
+    // ── Helper: send the original query unmodified ────────────────────────
+    function doSendOriginal() {
+      // The input already has the original text — just submit
       triggerSubmit(inputEl, function () { isProcessing = false; });
     }
 
-    setTimeout(verifyAndSubmit, SUBMIT_DELAY_MS);
+    // ── Branch: Confirm Mode (show before/after modal) ────────────────────
+    if (confirmMode) {
+      showConfirmModal(
+        rawText, enhanced, label,
+        /* onSendEnhanced */ doSendEnhanced,
+        /* onSendOriginal */ doSendOriginal,
+        /* onCancel       */ function () { isProcessing = false; }
+      );
+    } else {
+      // Silent mode — enhance and submit immediately
+      doSendEnhanced();
+    }
   }
 
   // ─── Attach Listeners ─────────────────────────────────────────────────────

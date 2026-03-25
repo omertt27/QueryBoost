@@ -7,15 +7,16 @@
 
 // ── Storage defaults (kept in sync with src/constants.js) ────────────────────
 const QB_INSTALL_DEFAULTS = {
-  qb_enabled:       true,
-  qb_last_type:     null,
-  qb_boost_count:   0,
-  qb_platform:      null,
-  qb_domain_mode:   'general',
-  qb_transparency:  false,
-  qb_ab_variant:    null,
+  qb_enabled:         true,
+  qb_last_type:       null,
+  qb_boost_count:     0,
+  qb_platform:        null,
+  qb_domain_mode:     'general',
+  qb_transparency:    false,
+  qb_ab_variant:      null,
   qb_custom_wrappers: {},
-  qb_last_boost_ts: null,
+  qb_last_boost_ts:   null,
+  qb_confirm_mode:    true,   // show before/after modal by default
 };
 
 // Listen for messages from popup requesting active tab platform info
