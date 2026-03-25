@@ -39,6 +39,7 @@
   const STORAGE_KEY_FEEDBACK    = QB_KEYS.FEEDBACK;
   const STORAGE_KEY_CUSTOM_WRAP = QB_KEYS.CUSTOM_WRAP;
   const STORAGE_KEY_CONFIRM_MODE= QB_KEYS.CONFIRM_MODE;
+  const STORAGE_KEY_PROMPT_MODE = QB_KEYS.PROMPT_MODE;
 
   const TOAST_DURATION_MS = 4000;
   const SUBMIT_DELAY_MS   = 150;
@@ -132,10 +133,11 @@
   let transparency = false;          // show injected wrapper in toast
   let customWraps  = {};             // { universal: string } optional user-written template
   let confirmMode  = true;           // show before/after confirm modal before submitting
+  let promptMode   = 'default';      // 'default' | 'custom'
 
   chrome.storage.sync.get(
     [STORAGE_KEY_ENABLED, STORAGE_KEY_DOMAIN_MODE, STORAGE_KEY_TRANSPARENCY,
-     STORAGE_KEY_CUSTOM_WRAP, STORAGE_KEY_CONFIRM_MODE],
+     STORAGE_KEY_CUSTOM_WRAP, STORAGE_KEY_CONFIRM_MODE, STORAGE_KEY_PROMPT_MODE],
     (r) => {
       if (chrome.runtime.lastError) {
         console.warn('[QueryBoost] storage.sync.get failed:', chrome.runtime.lastError.message);
@@ -145,7 +147,8 @@
       domainMode   = r[STORAGE_KEY_DOMAIN_MODE]  || 'general';
       transparency = r[STORAGE_KEY_TRANSPARENCY] === true;
       customWraps  = r[STORAGE_KEY_CUSTOM_WRAP]  || {};
-      confirmMode  = r[STORAGE_KEY_CONFIRM_MODE] !== false; // default true
+      confirmMode  = r[STORAGE_KEY_CONFIRM_MODE] !== false;
+      promptMode   = r[STORAGE_KEY_PROMPT_MODE]  || 'default';
     }
   );
 
@@ -156,6 +159,7 @@
     if (STORAGE_KEY_TRANSPARENCY in changes) transparency = changes[STORAGE_KEY_TRANSPARENCY].newValue === true;
     if (STORAGE_KEY_CUSTOM_WRAP  in changes) customWraps  = changes[STORAGE_KEY_CUSTOM_WRAP].newValue  || {};
     if (STORAGE_KEY_CONFIRM_MODE in changes) confirmMode  = changes[STORAGE_KEY_CONFIRM_MODE].newValue !== false;
+    if (STORAGE_KEY_PROMPT_MODE  in changes) promptMode   = changes[STORAGE_KEY_PROMPT_MODE].newValue  || 'default';
   });
 
   // ─── Per-Platform Wrapper Tuning ─────────────────────────────────────────
@@ -274,10 +278,16 @@
 
     let enhanced;
 
-    // 4. Custom universal wrapper override
-    const customTpl = customWraps['universal'] || null;
+    // 4. Prompt mode: 'custom' uses user's saved wrapper; 'default' uses universal built-in
+    const customTpl = (promptMode === 'custom' && customWraps['universal'])
+      ? customWraps['universal']
+      : null;
+
     if (customTpl) {
-      enhanced = customTpl.replace(/\{\{query\}\}/gi, q);
+      // {{query}} is optional — if omitted, query is auto-prepended
+      enhanced = customTpl.includes('{{query}}')
+        ? customTpl.replace(/\{\{query\}\}/gi, q)
+        : q + '\n\n---\n' + customTpl;
     } else {
       // 5. Build universal enhanced query
       const personaPrefix = DOMAIN_MODE_PREFIXES[domainMode] || '';
@@ -296,7 +306,7 @@
       enhanced = personaPrefix + q + '\n\n---\n' + instrWithExtras;
     }
 
-    const result = { enhanced, label: 'Universal', skipped: false };
+    const result = { enhanced, label: customTpl ? 'Custom' : 'Universal', skipped: false };
     cacheSet(key, result);
     return result;
   }

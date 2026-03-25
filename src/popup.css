@@ -178,6 +178,25 @@ body {
 .qb-btn-danger        { background: rgba(242,95,92,0.1); color: var(--qb-red); border-color: rgba(242,95,92,0.3); width: 100%; }
 .qb-btn-danger:hover  { background: rgba(242,95,92,0.2); }
 
+/* ── Prompt mode toggle buttons ─────────────────────────── */
+.qb-prompt-mode-btn {
+  flex: 1; padding: 7px 10px; border-radius: 8px; font-size: 12px;
+  font-weight: 600; cursor: pointer; border: 1px solid var(--qb-border);
+  background: var(--qb-surface-2); color: var(--qb-muted);
+  transition: all 0.15s;
+}
+.qb-prompt-mode-btn:hover { color: var(--qb-text); border-color: #4a4a5a; }
+.qb-prompt-mode-active {
+  background: rgba(124,106,247,0.15) !important;
+  border-color: var(--qb-accent) !important;
+  color: #a78bfa !important;
+}
+.qb-prompt-mode-active-custom {
+  background: rgba(0,225,170,0.12) !important;
+  border-color: #00e1aa !important;
+  color: #00e1aa !important;
+}
+
 /* ── A/B pill ───────────────────────────────────────────── */
 .qb-ab-pill {
   display: inline-flex; align-items: center; justify-content: center;
@@ -420,3 +439,30 @@ body {
 }
 
 .qb-count-bump { animation: qb-bump 0.38s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+/* ── Quick-insert preference chips ─────────────────────── */
+.qb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.qb-chip {
+  background: rgba(124,106,247,0.1);
+  border: 1px solid rgba(124,106,247,0.25);
+  border-radius: 20px;
+  color: #a78bfa;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 9px;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.qb-chip:hover {
+  background: rgba(124,106,247,0.2);
+  border-color: rgba(124,106,247,0.5);
+  color: #c4b5fd;
+}

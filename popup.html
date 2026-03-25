@@ -17,7 +17,7 @@
   <!-- Header -->
   <header class="qb-header">
     <div class="qb-logo" aria-hidden="true">
-      <img src="../icons/icon32.png" alt="QueryBoost Logo">
+      <img src="icons/icon32.png" alt="QueryBoost Logo">
     </div>
     <div class="qb-header-text">
       <div class="qb-title">QueryBoost</div>
@@ -89,6 +89,24 @@
         </select>
         <!-- #4: persona prefix preview -->
         <span class="qb-mode-persona" id="qb-mode-persona" style="display:none;"></span>
+      </span>
+    </div>
+
+    <!-- Prompt Mode Card -->
+    <div class="qb-card qb-card-wide" id="qb-prompt-mode-card">
+      <span class="qb-card-label">Prompt Mode</span>
+      <span class="qb-card-value" style="flex-direction:column;align-items:flex-start;gap:6px;">
+        <div style="display:flex;gap:8px;width:100%;">
+          <button class="qb-prompt-mode-btn qb-prompt-mode-active" id="qb-prompt-default-btn" data-mode="default">
+            ⚡ Default
+          </button>
+          <button class="qb-prompt-mode-btn" id="qb-prompt-custom-btn" data-mode="custom">
+            ✏️ My Custom
+          </button>
+        </div>
+        <span style="font-size:11px;color:#8888a0;line-height:1.5;" id="qb-prompt-mode-desc">
+          Using the built-in universal prompt
+        </span>
       </span>
     </div>
 
@@ -175,14 +193,24 @@
   <main class="qb-body qb-panel qb-panel-hidden" id="panel-custom">
 
     <div class="qb-custom-intro">
-      Override the built-in universal wrapper. Use <code>{{query}}</code> as the original query placeholder. Leave blank to use the default.
+      Tell the AI how you like to work — your language, expertise level, and preferences. Applied to every query automatically.
     </div>
 
     <div class="qb-custom-type-picker">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-        <label class="qb-card-label">Universal wrapper</label>
-        <button class="qb-btn qb-btn-ghost qb-btn-xs" id="qb-example-btn" title="Load a starter example into the editor">📋 Use example</button>
+        <label class="qb-card-label">Your personal instructions</label>
+        <button class="qb-btn qb-btn-ghost qb-btn-xs" id="qb-example-btn" title="Load a personal example into the editor">📋 Use example</button>
       </div>
+    </div>
+
+    <!-- Quick-insert preference chips -->
+    <div class="qb-chips" id="qb-chips">
+      <button class="qb-chip" data-insert="Respond in [your language].">+ My language</button>
+      <button class="qb-chip" data-insert="Assume I am a software developer.">+ I'm a developer</button>
+      <button class="qb-chip" data-insert="Keep answers short and to the point.">+ Keep it short</button>
+      <button class="qb-chip" data-insert="Always include a practical code example.">+ Always use examples</button>
+      <button class="qb-chip" data-insert="Assume I am a beginner — explain everything clearly.">+ Beginner level</button>
+      <button class="qb-chip" data-insert="Do not use markdown formatting — plain text only.">+ No markdown</button>
     </div>
 
     <!-- Sync storage usage meter -->
@@ -200,7 +228,7 @@
     <textarea
       class="qb-custom-textarea"
       id="qb-custom-textarea"
-      placeholder="{{query}}&#10;&#10;---&#10;Your custom instructions here…"
+      placeholder="Write your instructions here — {{query}} is optional.&#10;&#10;Without {{query}} (query is auto-added at the top):&#10;  Respond in Spanish. Be concise. Use bullet points.&#10;&#10;With {{query}} (you control placement):&#10;  I am a 21-year-old student. {{query}}&#10;  Explain simply. Skip advanced details."
       rows="7"
       spellcheck="false"
     ></textarea>
@@ -229,9 +257,8 @@
     </div>
 
     <div id="qb-custom-list-section">
-      <div class="qb-card-label" style="margin-top:10px;margin-bottom:5px;">Active custom wrappers</div>
       <ul class="qb-custom-list" id="qb-custom-list">
-        <li class="qb-custom-empty">None yet.</li>
+        <li class="qb-custom-empty">No custom instructions yet — using the smart default.<br>Add yours above to personalize every response.</li>
       </ul>
     </div>
 

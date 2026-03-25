@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "QueryBoost",
   "version": "2.1.0",
-  "description": "Enhances your AI prompts for better responses. Shows a before/after preview so you approve every change before sending — works on ChatGPT, Claude, Gemini & Perplexity.",
+  "description": "Smarter AI prompts in one click. Preview every enhancement before sending — works on ChatGPT, Claude, Gemini & Perplexity.",
   "homepage_url": "https://github.com/omerTT/queryboost",
   "permissions": [
     "activeTab",

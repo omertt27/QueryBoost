@@ -17,6 +17,7 @@ const QB_INSTALL_DEFAULTS = {
   qb_custom_wrappers: {},
   qb_last_boost_ts:   null,
   qb_confirm_mode:    true,   // show before/after modal by default
+  qb_prompt_mode:     'default', // use built-in universal wrapper by default
 };
 
 // Listen for messages from popup requesting active tab platform info

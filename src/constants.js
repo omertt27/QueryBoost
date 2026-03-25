@@ -19,6 +19,7 @@ const QB_KEYS = Object.freeze({
   LAST_BOOST_TS:   'qb_last_boost_ts',
   LAST_BOOST_INFO: 'qb_last_boost_info',
   CONFIRM_MODE:    'qb_confirm_mode',   // show before/after modal before submitting
+  PROMPT_MODE:     'qb_prompt_mode',    // 'default' | 'custom'
 });
 
 // ── Default values for fresh install ─────────────────────────────────────────
@@ -32,4 +33,5 @@ const QB_DEFAULTS = Object.freeze({
   [QB_KEYS.CUSTOM_WRAP]:   {},
   [QB_KEYS.LAST_BOOST_TS]: null,
   [QB_KEYS.CONFIRM_MODE]:  true,   // ON by default — show before/after modal
+  [QB_KEYS.PROMPT_MODE]:   'default', // use built-in universal wrapper by default
 });

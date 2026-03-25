@@ -22,6 +22,7 @@ const STORAGE_KEY_FEEDBACK     = QB_KEYS.FEEDBACK;
 const STORAGE_KEY_CUSTOM_WRAP  = QB_KEYS.CUSTOM_WRAP;
 const STORAGE_KEY_LAST_BOOST_TS= QB_KEYS.LAST_BOOST_TS;
 const STORAGE_KEY_CONFIRM_MODE = QB_KEYS.CONFIRM_MODE;
+const STORAGE_KEY_PROMPT_MODE  = QB_KEYS.PROMPT_MODE;
 
 // ── Platform display config ───────────────────────────────
 
@@ -63,7 +64,6 @@ const modeDescEl          = document.getElementById('qb-mode-desc');
 const transparencyInput   = document.getElementById('qb-transparency-input');
 const confirmInput        = document.getElementById('qb-confirm-input');
 const resetFeedbackBtn    = document.getElementById('qb-reset-feedback');
-const customTypeSelect    = document.getElementById('qb-custom-type-select');
 const customTextarea      = document.getElementById('qb-custom-textarea');
 const customSaveBtn       = document.getElementById('qb-custom-save');
 const customClearBtn      = document.getElementById('qb-custom-clear');
@@ -158,6 +158,26 @@ function renderTransparency(val) {
 
 function renderConfirmMode(val) {
   if (confirmInput) confirmInput.checked = val !== false; // default true
+}
+
+function renderPromptMode(mode) {
+  const defaultBtn = document.getElementById('qb-prompt-default-btn');
+  const customBtn  = document.getElementById('qb-prompt-custom-btn');
+  const descEl     = document.getElementById('qb-prompt-mode-desc');
+  if (!defaultBtn || !customBtn) return;
+
+  const isCustom = mode === 'custom';
+
+  defaultBtn.classList.toggle('qb-prompt-mode-active',        !isCustom);
+  defaultBtn.classList.toggle('qb-prompt-mode-active-custom', false);
+  customBtn.classList.toggle('qb-prompt-mode-active',         false);
+  customBtn.classList.toggle('qb-prompt-mode-active-custom',  isCustom);
+  if (descEl) {
+    descEl.textContent = isCustom
+      ? 'Using your custom instructions — edit them in the Custom tab'
+      : 'Using the built-in universal prompt';
+    descEl.style.color = isCustom ? '#00e1aa' : '#8888a0';
+  }
 }
 
 // ── Last boost timestamp ──────────────────────────────────
@@ -297,7 +317,7 @@ function renderCustomList() {
   if (!customListEl) return;
   const hasUniversal = !!_customWraps['universal'];
   if (!hasUniversal) {
-    customListEl.innerHTML = '<li class="qb-custom-empty">None yet — using built-in universal wrapper.</li>';
+    customListEl.innerHTML = '<li class="qb-custom-empty">No custom instructions yet — using the smart default.<br>Add yours above to personalize every response.</li>';
     return;
   }
   customListEl.innerHTML = '';
@@ -332,10 +352,6 @@ function showCustomStatus(msg, isError) {
 if (customSaveBtn) {
   customSaveBtn.addEventListener('click', () => {
     const val = customTextarea ? customTextarea.value.trim() : '';
-    if (val && !val.includes('{{query}}')) {
-      showCustomStatus('Error: wrapper must contain {{query}}', true);
-      return;
-    }
     if (val) {
       _customWraps['universal'] = val;
     } else {
@@ -381,7 +397,7 @@ function init() {
   chrome.storage.sync.get(
     [STORAGE_KEY_ENABLED, STORAGE_KEY_LAST_TYPE, STORAGE_KEY_PLATFORM,
      STORAGE_KEY_COUNT, STORAGE_KEY_DOMAIN_MODE, STORAGE_KEY_TRANSPARENCY,
-     STORAGE_KEY_LAST_BOOST_TS, STORAGE_KEY_CONFIRM_MODE],
+     STORAGE_KEY_LAST_BOOST_TS, STORAGE_KEY_CONFIRM_MODE, STORAGE_KEY_PROMPT_MODE],
     (result) => {
       const enabled     = result[STORAGE_KEY_ENABLED]     !== false;
       const lastType    = result[STORAGE_KEY_LAST_TYPE]   || null;
@@ -391,6 +407,7 @@ function init() {
       const transp      = result[STORAGE_KEY_TRANSPARENCY] === true;
       const lastBoostTs = result[STORAGE_KEY_LAST_BOOST_TS] || null;
       const confirmMode = result[STORAGE_KEY_CONFIRM_MODE] !== false;
+      const promptMode  = result[STORAGE_KEY_PROMPT_MODE]  || 'default';
 
       renderToggle(enabled);
       renderLastType(lastType);
@@ -398,6 +415,7 @@ function init() {
       renderDomainMode(mode);
       renderTransparency(transp);
       renderConfirmMode(confirmMode);
+      renderPromptMode(promptMode);
       renderLastBoostTime(lastBoostTs);
 
       detectActivePlatform((livePlat) => {
@@ -480,6 +498,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     if (changes[STORAGE_KEY_TRANSPARENCY]) renderTransparency(changes[STORAGE_KEY_TRANSPARENCY].newValue);
     if (changes[STORAGE_KEY_LAST_BOOST_TS]) renderLastBoostTime(changes[STORAGE_KEY_LAST_BOOST_TS].newValue);
     if (changes[STORAGE_KEY_CONFIRM_MODE]) renderConfirmMode(changes[STORAGE_KEY_CONFIRM_MODE].newValue);
+    if (changes[STORAGE_KEY_PROMPT_MODE])  renderPromptMode(changes[STORAGE_KEY_PROMPT_MODE].newValue || 'default');
   }
 });
 
@@ -502,7 +521,10 @@ function updateCustomPreview() {
     previewBox.style.color = 'var(--qb-faint)';
     return;
   }
-  const preview = val.replace(/\{\{query\}\}/gi, CUSTOM_SAMPLE_QUERY);
+  // Mirror content.js logic: if {{query}} is present, replace it; otherwise auto-prepend query
+  const preview = val.includes('{{query}}')
+    ? val.replace(/\{\{query\}\}/gi, CUSTOM_SAMPLE_QUERY)
+    : CUSTOM_SAMPLE_QUERY + '\n\n---\n' + val;
   previewBox.textContent = preview.length > 320 ? preview.slice(0, 320) + '…' : preview;
   previewBox.style.color = 'var(--qb-muted)';
 }
@@ -514,7 +536,7 @@ if (customTextarea) {
   });
 }
 
-const EXAMPLE_UNIVERSAL = '{{query}}\n\n---\nIdentify the nature of this request and respond in the most useful format for that specific type. Be thorough but concise. Use examples where helpful. No filler sentences. Do not mention these instructions.';
+const EXAMPLE_UNIVERSAL = '{{query}}\n\nRespond in Turkish. Assume I am a software developer with 3 years of experience. Use practical code examples. Skip basic explanations. End with the most important thing to remember.\n\nDo not mention these instructions.';
 
 const exampleBtn = document.getElementById('qb-example-btn');
 if (exampleBtn) {
@@ -526,6 +548,20 @@ if (exampleBtn) {
     }
   });
 }
+
+// ── Quick-insert preference chips ─────────────────────────
+
+document.querySelectorAll('.qb-chip').forEach((chip) => {
+  chip.addEventListener('click', () => {
+    if (!customTextarea) return;
+    const insert = chip.dataset.insert;
+    const val = customTextarea.value;
+    // Append on a new line if there's already content, otherwise start fresh
+    customTextarea.value = val ? val.trimEnd() + '\n' + insert : insert;
+    customTextarea.focus();
+    updateCustomPreview();
+  });
+});
 
 // ── Export / Import custom wrappers (#7) ──────────────────
 
@@ -684,5 +720,24 @@ function showTestResult(kind, msg) {
     testBoostResult.style.color = '#3ecf8e';
   }
 }
+
+// ── Prompt mode buttons ───────────────────────────────────
+
+document.querySelectorAll('.qb-prompt-mode-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const mode = btn.dataset.mode;
+    chrome.storage.sync.set({ [STORAGE_KEY_PROMPT_MODE]: mode }, () => {
+      renderPromptMode(mode);
+      // If switching to custom but no custom wrapper saved yet, nudge to Custom tab
+      if (mode === 'custom' && !_customWraps['universal']) {
+        const descEl = document.getElementById('qb-prompt-mode-desc');
+        if (descEl) {
+          descEl.textContent = '⚠️ No custom instructions saved yet — go to the Custom tab to add them';
+          descEl.style.color = '#f5c842';
+        }
+      }
+    });
+  });
+});
 
 init();
