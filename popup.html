@@ -105,7 +105,7 @@
     <div class="qb-card" style="flex-direction:row;align-items:flex-start;gap:8px;min-height:unset;">
       <span style="font-size:15px;margin-top:1px;flex-shrink:0;">🔍</span>
       <span style="font-size:11px;color:#8888a0;line-height:1.55;">
-        Wraps queries with smart structure before sending. Click the icon in the toast to preview. Use <strong style="color:var(--qb-accent);">Settings</strong> for transparency &amp; A/B options.
+        Wraps queries with a universal enhancement prompt before sending. Click the icon in the toast to preview. Use <strong style="color:var(--qb-accent);">Settings</strong> for transparency &amp; confirm mode.
       </span>
     </div>
 
@@ -152,15 +152,6 @@
       </label>
     </div>
 
-    <!-- A/B Variant Info -->
-    <div class="qb-card qb-card-wide">
-      <span class="qb-card-label">A/B Test Variant</span>
-      <span class="qb-card-value" style="gap:8px;flex-wrap:wrap;">
-        <span class="qb-ab-pill" id="qb-ab-variant-pill">–</span>
-        <span style="font-size:11px;color:#8888a0;">Randomly assigned at install. Check Stats tab to compare variants.</span>
-      </span>
-    </div>
-
     <!-- Platform tuning summary -->
     <div class="qb-card qb-card-wide">
       <span class="qb-card-label">Platform Tuning</span>
@@ -175,7 +166,7 @@
     <!-- Data management -->
     <div class="qb-card qb-card-wide" style="gap:8px;">
       <span class="qb-card-label">Data Management</span>
-      <button class="qb-btn qb-btn-danger" id="qb-reset-feedback">🗑 Clear feedback &amp; A/B data</button>
+      <button class="qb-btn qb-btn-danger" id="qb-reset-feedback">🗑 Clear feedback data</button>
     </div>
 
   </main>
@@ -184,28 +175,14 @@
   <main class="qb-body qb-panel qb-panel-hidden" id="panel-custom">
 
     <div class="qb-custom-intro">
-      Override the built-in wrapper for any query type. Use <code>{{query}}</code> as the original query placeholder. Leave blank to use the default.
+      Override the built-in universal wrapper. Use <code>{{query}}</code> as the original query placeholder. Leave blank to use the default.
     </div>
 
     <div class="qb-custom-type-picker">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-        <label class="qb-card-label" for="qb-custom-type-select">Query type</label>
-        <!-- #5: example button -->
+        <label class="qb-card-label">Universal wrapper</label>
         <button class="qb-btn qb-btn-ghost qb-btn-xs" id="qb-example-btn" title="Load a starter example into the editor">📋 Use example</button>
       </div>
-      <select class="qb-select" id="qb-custom-type-select">
-        <option value="code">Code / Debug</option>
-        <option value="explain">Explain / Learn</option>
-        <option value="write">Write / Draft</option>
-        <option value="analyze">Analyze / Review</option>
-        <option value="data">Data / SQL</option>
-        <option value="howto">How-To / Steps</option>
-        <option value="local">Local / Travel</option>
-        <option value="recommend">Recommend / List</option>
-        <option value="opinion">Opinion / Decision</option>
-        <option value="creative">Creative</option>
-        <option value="default">General (default)</option>
-      </select>
     </div>
 
     <!-- Sync storage usage meter -->
@@ -263,59 +240,10 @@
   <!-- ═══ TAB: STATS ═══ -->
   <main class="qb-body qb-panel qb-panel-hidden" id="panel-stats">
 
-    <div class="qb-card-label" style="margin-bottom:8px;">A/B Wrapper Performance</div>
-    <div class="qb-ab-stats-grid">
-      <div class="qb-ab-col">
-        <div class="qb-ab-header">Variant A</div>
-        <div class="qb-ab-row"><span>Sent</span><span id="qb-ab-a-sent">–</span></div>
-        <div class="qb-ab-row"><span>👍</span><span id="qb-ab-a-up">–</span></div>
-        <div class="qb-ab-row"><span>👎</span><span id="qb-ab-a-down">–</span></div>
-        <div class="qb-ab-row qb-ab-rate"><span>👍 rate</span><span id="qb-ab-a-rate">–</span></div>
-        <!-- #6: fraction row -->
-        <div class="qb-ab-row qb-ab-fraction"><span>Votes</span><span id="qb-ab-a-fraction" title="thumbs-up / total votes">–</span></div>
-      </div>
-      <div class="qb-ab-divider"></div>
-      <div class="qb-ab-col">
-        <div class="qb-ab-header">Variant B</div>
-        <div class="qb-ab-row"><span>Sent</span><span id="qb-ab-b-sent">–</span></div>
-        <div class="qb-ab-row"><span>👍</span><span id="qb-ab-b-up">–</span></div>
-        <div class="qb-ab-row"><span>👎</span><span id="qb-ab-b-down">–</span></div>
-        <div class="qb-ab-row qb-ab-rate"><span>👍 rate</span><span id="qb-ab-b-rate">–</span></div>
-        <!-- #6: fraction row -->
-        <div class="qb-ab-row qb-ab-fraction"><span>Votes</span><span id="qb-ab-b-fraction" title="thumbs-up / total votes">–</span></div>
-      </div>
-    </div>
+    <div class="qb-card-label" style="margin-bottom:8px;">Feedback Summary</div>
+    <div id="qb-feedback-summary" class="qb-ab-col"></div>
 
-    <div class="qb-card-label" style="margin-top:14px;margin-bottom:8px;">Feedback by Query Type</div>
-    <div class="qb-type-stats" id="qb-type-stats">
-      <span style="color:#55556a;font-size:11px;">No feedback yet.</span>
-    </div>
-
-    <!-- #8: filter controls -->
-    <div class="qb-card-label" style="margin-top:14px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
-      Recent Feedback
-      <div class="qb-feedback-filters">
-        <select class="qb-select qb-select-xs" id="qb-filter-type" aria-label="Filter by type">
-          <option value="">All types</option>
-          <option value="code">Code</option>
-          <option value="explain">Explain</option>
-          <option value="write">Write</option>
-          <option value="analyze">Analyze</option>
-          <option value="data">Data</option>
-          <option value="howto">How-To</option>
-          <option value="local">Local</option>
-          <option value="recommend">Recommend</option>
-          <option value="opinion">Opinion</option>
-          <option value="creative">Creative</option>
-          <option value="default">General</option>
-        </select>
-        <select class="qb-select qb-select-xs" id="qb-filter-variant" aria-label="Filter by variant">
-          <option value="">All variants</option>
-          <option value="A">Variant A</option>
-          <option value="B">Variant B</option>
-        </select>
-      </div>
-    </div>
+    <div class="qb-card-label" style="margin-top:14px;margin-bottom:6px;">Recent Feedback</div>
     <ul class="qb-feedback-log" id="qb-feedback-log">
       <li class="qb-feedback-empty">No feedback recorded yet.</li>
     </ul>
