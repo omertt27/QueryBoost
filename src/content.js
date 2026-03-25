@@ -140,6 +140,10 @@
     [STORAGE_KEY_ENABLED, STORAGE_KEY_DOMAIN_MODE, STORAGE_KEY_TRANSPARENCY,
      STORAGE_KEY_AB_VARIANT, STORAGE_KEY_CUSTOM_WRAP, STORAGE_KEY_CONFIRM_MODE],
     (r) => {
+      if (chrome.runtime.lastError) {
+        console.warn('[QueryBoost] storage.sync.get failed:', chrome.runtime.lastError.message);
+        return;
+      }
       isEnabled    = r[STORAGE_KEY_ENABLED]    !== false;
       domainMode   = r[STORAGE_KEY_DOMAIN_MODE]  || 'general';
       transparency = r[STORAGE_KEY_TRANSPARENCY] === true;
@@ -704,6 +708,11 @@
     for (const [cat, score] of Object.entries(scores)) {
       if (score > bestScore) { bestScore = score; best = cat; }
     }
+    // Safety: always return a valid known type — never null/undefined
+    if (!TYPE_LABELS[best]) {
+      console.warn('[QueryBoost] detectQueryTypeWithScore: unexpected type "' + best + '", falling back to default');
+      best = 'default';
+    }
     return { type: best, score: bestScore, signals: matchedSignals };
   }
 
@@ -769,14 +778,24 @@
       const tpl = customWraps[type];
       const enhanced = tpl.replace(/\{\{query\}\}/gi, q)
                           .replace(/\{\{QUERY\}\}/g, q);
-      const result = { enhanced, type, label: TYPE_LABELS[type], skipped: false, variant: 'custom', signals: signals || [] };
+      const result = { enhanced, type, label: TYPE_LABELS[type] || TYPE_LABELS['default'], skipped: false, variant: 'custom', signals: signals || [] };
       cacheSet(key, result);
       return result;
     }
 
-    // 5. A/B variant selection
+    // 5. A/B variant selection — triple fallback ensures wrapFn is ALWAYS a function
     const variantWrappers = abVariant === 'B' ? WRAPPERS_B : WRAPPERS_A;
-    const wrapFn = variantWrappers[type] || variantWrappers.default;
+    const wrapFn = variantWrappers[type]
+      ?? variantWrappers['default']
+      ?? WRAPPERS_A['default'];
+
+    if (typeof wrapFn !== 'function') {
+      // Should never happen, but if it does: log and send original unmodified
+      console.warn('[QueryBoost] buildEnhancedQuery: no wrapper found for type "' + type + '" — sending original');
+      const result = { enhanced: q, type: 'default', label: TYPE_LABELS['default'], skipped: false, variant: abVariant || 'A', signals: signals || [] };
+      cacheSet(key, result);
+      return result;
+    }
 
     // 6. Build base wrapped query
     const lengthMode  = getLengthMode(q);
@@ -803,7 +822,7 @@
         : enhanced + platSuffix;
     }
 
-    const result = { enhanced, type, label: TYPE_LABELS[type], skipped: false, variant: abVariant || 'A', signals: signals || [] };
+    const result = { enhanced, type, label: TYPE_LABELS[type] || TYPE_LABELS['default'], skipped: false, variant: abVariant || 'A', signals: signals || [] };
     cacheSet(key, result);
     return result;
   }
@@ -1151,8 +1170,12 @@
         const signal = btn.dataset.val;
         storeFeedback(signal, queryType, variant || 'A');
         // Visual confirmation
-        toast.querySelector('.qb-toast-feedback').innerHTML =
-          '<span class="qb-feedback-done">' + (signal === 'up' ? '👍 Thanks!' : '👎 Noted!') + '</span>';
+        var feedbackRow = toast.querySelector('.qb-toast-feedback');
+        feedbackRow.textContent = '';
+        var doneSpan = document.createElement('span');
+        doneSpan.className = 'qb-feedback-done';
+        doneSpan.textContent = signal === 'up' ? '👍 Thanks!' : '👎 Noted!';
+        feedbackRow.appendChild(doneSpan);
         clearTimeout(toastTimer);
         toastTimer = setTimeout(dismiss, 1800);
       });
@@ -1175,7 +1198,8 @@
 
     function esc(s) {
       return String(s)
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/\n/g,'<br>');
     }
 
     // Extract just the injected wrapper (the part after the separator)
@@ -1338,6 +1362,9 @@
     // All async storage ops are kicked off together; isProcessing is cleared
     // only in the triggerSubmit callback, after the click/keypress has fired.
     chrome.storage.sync.get(QB_KEYS.COUNT, function (r) {
+      if (chrome.runtime.lastError) {
+        console.warn('[QueryBoost] storage.sync.get (count) failed:', chrome.runtime.lastError.message);
+      }
       var prev = (typeof r[QB_KEYS.COUNT] === 'number') ? r[QB_KEYS.COUNT] : 0;
       chrome.storage.sync.set({
         [QB_KEYS.LAST_TYPE]:     label,
