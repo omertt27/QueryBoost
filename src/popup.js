@@ -698,6 +698,77 @@ if (detailToggleBtn && lastBoostDetailBody) {
   });
 }
 
+// ── Privacy link — opens as an extension page in a new tab ────────────────
+
+const privacyLink = document.getElementById('qb-privacy-link');
+if (privacyLink) {
+  privacyLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: chrome.runtime.getURL('privacy.html') });
+  });
+}
+
 // ── Boot ──────────────────────────────────────────────────
+
+// ── Test Boost button ──────────────────────────────────────
+
+const testBoostBtn    = document.getElementById('qb-test-boost-btn');
+const testBoostResult = document.getElementById('qb-test-boost-result');
+
+if (testBoostBtn) {
+  testBoostBtn.addEventListener('click', () => {
+    testBoostBtn.disabled  = true;
+    testBoostBtn.textContent = '⏳ Enhancing…';
+    if (testBoostResult) {
+      testBoostResult.style.display = 'none';
+      testBoostResult.textContent   = '';
+    }
+
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (!tabs || !tabs[0]) {
+        showTestResult('error', 'No active tab found.');
+        return;
+      }
+      chrome.tabs.sendMessage(tabs[0].id, { type: 'QB_MANUAL_BOOST' }, (response) => {
+        if (chrome.runtime.lastError) {
+          showTestResult('error',
+            'Content script not ready. Please open a supported AI site (ChatGPT, Claude, Gemini, or Perplexity) and try again.');
+          return;
+        }
+        if (!response) {
+          showTestResult('error', 'No response from content script.');
+          return;
+        }
+        if (!response.ok) {
+          showTestResult('error', response.error || 'Unknown error.');
+          return;
+        }
+        showTestResult('ok',
+          '✓ Boost applied! Type: ' + response.label +
+          ' · Variant ' + (response.variant || 'A') +
+          '\nThe enhanced query is now in the input field. Check the toast on the page for a preview.');
+      });
+    });
+  });
+}
+
+function showTestResult(kind, msg) {
+  if (testBoostBtn) {
+    testBoostBtn.disabled    = false;
+    testBoostBtn.textContent = '⚡ Preview Boost on Active Tab';
+  }
+  if (!testBoostResult) return;
+  testBoostResult.style.display = '';
+  testBoostResult.textContent   = msg;
+  if (kind === 'error') {
+    testBoostResult.style.background = 'rgba(242,95,92,0.08)';
+    testBoostResult.style.borderColor = 'rgba(242,95,92,0.25)';
+    testBoostResult.style.color = '#f25f5c';
+  } else {
+    testBoostResult.style.background = 'rgba(62,207,142,0.08)';
+    testBoostResult.style.borderColor = 'rgba(62,207,142,0.25)';
+    testBoostResult.style.color = '#3ecf8e';
+  }
+}
 
 init();

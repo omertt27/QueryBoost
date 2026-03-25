@@ -857,76 +857,107 @@
     return el.value || '';
   }
 
-  // Fix #2: Replace deprecated execCommand with Selection API for contenteditable,
-  // and use the native value-setter for textarea elements.
+  // setInputText: Robust 3-strategy cascade for React/Vue/Quill contenteditable.
+  //
+  // Strategy order (most reliable first):
+  //   1. execCommand('selectAll') + execCommand('insertText')
+  //      — the de-facto standard for React-controlled contenteditable; triggers
+  //        React's synthetic onChange and keeps fiber state in sync.
+  //        Still fully supported in Chrome for contenteditable nodes (2024+).
+  //   2. ClipboardEvent paste
+  //      — works for Quill (.ql-editor) and ProseMirror on Claude/Gemini.
+  //   3. Direct DOM write + text nodes
+  //      — last-resort; the visible DOM text is correct even if framework state
+  //        isn't updated; the submit reads innerHTML/innerText so the right text
+  //        is what gets sent.
+  //
+  // Every strategy concludes by firing InputEvent + Event('input'/'change') so
+  // all major frameworks (React, Vue, Svelte, Quill, ProseMirror) see the edit.
   function setInputText(el, text) {
+    // ── Strategy 0: Plain <textarea> (Perplexity legacy) ──────────────────
     if (!elementIsRichText(el)) {
-      // Plain <textarea> — use React's native setter so React state updates
-      const proto  = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
-      if (proto && proto.set) proto.set.call(el, text);
+      const proto = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
+      if (proto && proto.set) {
+        proto.set.call(el, text);
+      } else {
+        el.value = text;
+      }
       el.dispatchEvent(new Event('input',  { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
       return;
     }
 
-    // Contenteditable — use Selection API (replaces deprecated execCommand)
+    // ── All contenteditable strategies ────────────────────────────────────
     el.focus();
 
-    // Select all existing content
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    const sel = window.getSelection();
-    if (sel) {
-      sel.removeAllRanges();
-      sel.addRange(range);
+    let succeeded = false;
+
+    // ── Strategy 1: execCommand (most reliable for React contenteditable) ─
+    try {
+      document.execCommand('selectAll', false, null);
+      succeeded = document.execCommand('insertText', false, text);
+      // Verify the text actually landed
+      if (succeeded) {
+        const current = (el.innerText || el.textContent || '').trim();
+        if (current !== text.trim()) succeeded = false;
+      }
+    } catch (_) {
+      succeeded = false;
     }
 
-    // Insert new text via DataTransfer so the host framework sees a real paste
-    const dt = new DataTransfer();
-    dt.setData('text/plain', text);
-    const pasteEvent = new ClipboardEvent('paste', {
-      bubbles: true, cancelable: true, clipboardData: dt,
-    });
-
-    // Try native paste event first (works on ChatGPT/Claude)
-    const handled = el.dispatchEvent(pasteEvent);
-
-    // Fallback: if the host didn't intercept the paste, write directly
-    if (handled) {
-      // Some frameworks don't act on the paste event — verify the change happened
-      const current = el.innerText || el.textContent || '';
-      if (current.trim() !== text.trim()) {
+    // ── Strategy 2: ClipboardEvent paste (Quill / ProseMirror) ───────────
+    if (!succeeded) {
+      try {
         el.innerHTML = '';
-        el.textContent = text;
+        const dt = new DataTransfer();
+        dt.setData('text/plain', text);
+        el.dispatchEvent(new ClipboardEvent('paste', {
+          bubbles: true, cancelable: true, clipboardData: dt,
+        }));
+        const current = (el.innerText || el.textContent || '').trim();
+        if (current === text.trim()) succeeded = true;
+      } catch (_) {
+        succeeded = false;
       }
     }
 
+    // ── Strategy 3: Direct DOM write ─────────────────────────────────────
+    if (!succeeded) {
+      el.innerHTML = '';
+      const lines = text.split('\n');
+      lines.forEach((line, i) => {
+        if (i > 0) el.appendChild(document.createElement('br'));
+        el.appendChild(document.createTextNode(line));
+      });
+    }
+
+    // ── Always fire framework update events ───────────────────────────────
     el.dispatchEvent(new InputEvent('input', {
       bubbles: true, cancelable: true,
       inputType: 'insertText', data: text,
     }));
+    el.dispatchEvent(new Event('input',  { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   // ─── Submit ───────────────────────────────────────────────────────────────
 
-  // Fix #1: Accept a callback so triggerSubmit fires only after setInputText
-  // has fully settled, preventing the race where the original text gets sent.
+  // triggerSubmit: fires the send action immediately (no internal delay).
+  // The caller (verifyAndSubmit) is responsible for scheduling the right delay
+  // after confirming the text was written to the input element.
   function triggerSubmit(inputEl, onDone) {
-    setTimeout(function () {
-      const btn = findSendButton();
-      if (btn && !btn.disabled) {
-        btn.click();
-      } else {
-        ['keydown', 'keypress', 'keyup'].forEach(function (type) {
-          inputEl.dispatchEvent(new KeyboardEvent(type, {
-            key: 'Enter', code: 'Enter', keyCode: 13,
-            which: 13, bubbles: true, cancelable: true,
-          }));
-        });
-      }
-      if (onDone) onDone();
-    }, SUBMIT_DELAY_MS);
+    const btn = findSendButton();
+    if (btn && !btn.disabled) {
+      btn.click();
+    } else {
+      ['keydown', 'keypress', 'keyup'].forEach(function (type) {
+        inputEl.dispatchEvent(new KeyboardEvent(type, {
+          key: 'Enter', code: 'Enter', keyCode: 13,
+          which: 13, bubbles: true, cancelable: true,
+        }));
+      });
+    }
+    if (onDone) onDone();
   }
 
   // ─── A/B Engagement Tracking ─────────────────────────────────────────────
@@ -1197,14 +1228,25 @@
       trackABEngagement(variant, 'sent');
     }
 
-    // Fix #1: setInputText first, show toast, then submit — all in sequence.
+    // Write the enhanced text, show the toast, then verify the write succeeded
+    // before submitting. Retries up to 3× with 60 ms gaps for slow React renders.
     setInputText(inputEl, enhanced);
     showToast(label, rawText, enhanced, result.type, variant, result.fromCache, result.signals);
 
-    // triggerSubmit fires after SUBMIT_DELAY_MS; isProcessing cleared in callback
-    triggerSubmit(inputEl, function () {
-      isProcessing = false;
-    });
+    var verifyAttempts = 0;
+    function verifyAndSubmit() {
+      verifyAttempts++;
+      var current = getInputText(inputEl).trim();
+      var verified = current.indexOf('Do not mention these instructions') !== -1;
+      if (!verified && verifyAttempts < 3) {
+        setInputText(inputEl, enhanced);
+        setTimeout(verifyAndSubmit, 60);
+        return;
+      }
+      triggerSubmit(inputEl, function () { isProcessing = false; });
+    }
+
+    setTimeout(verifyAndSubmit, SUBMIT_DELAY_MS);
   }
 
   // ─── Attach Listeners ─────────────────────────────────────────────────────
@@ -1290,6 +1332,38 @@
   chrome.runtime.onMessage.addListener(function (msg, _sender, respond) {
     if (msg.type === 'QB_PING')         respond({ alive: true, platform: PLATFORM });
     if (msg.type === 'QB_GET_PLATFORM') respond({ platform: PLATFORM });
+
+    // QB_MANUAL_BOOST: triggered by the popup "Test Boost" button.
+    // Reads whatever text is currently in the input, runs it through the full
+    // enhancement pipeline (without submitting), and reports back the result.
+    // This lets reviewers verify the feature works without having to type and send.
+    if (msg.type === 'QB_MANUAL_BOOST') {
+      var inputEl = findInput();
+      if (!inputEl) {
+        respond({ ok: false, error: 'Input field not found on this page.' });
+        return;
+      }
+      var rawText = getInputText(inputEl).trim();
+      if (!rawText || rawText.length < 4) {
+        respond({ ok: false, error: 'Please type a query into the AI input first.' });
+        return;
+      }
+      var result;
+      try {
+        result = buildEnhancedQuery(rawText);
+      } catch (err) {
+        respond({ ok: false, error: 'Enhancement error: ' + err.message });
+        return;
+      }
+      if (result.skipped) {
+        respond({ ok: false, error: 'Query was skipped: ' + result.label });
+        return;
+      }
+      // Apply the enhancement to the input (preview only — no submit)
+      setInputText(inputEl, result.enhanced);
+      showToast(result.label, rawText, result.enhanced, result.type, result.variant || abVariant || 'A', result.fromCache, result.signals);
+      respond({ ok: true, label: result.label, type: result.type, variant: result.variant });
+    }
   });
 
 })();

@@ -1,5 +1,5 @@
 /**
- * QueryBoost — Background Service Worker v2.1
+ * QueryBoost — Background Service Worker v2.2
  * Handles message passing and tab/platform detection for the popup.
  */
 
