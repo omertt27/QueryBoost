@@ -203,13 +203,35 @@
 
   // ─── Follow-up Detection ─────────────────────────────────────────────────
 
-  const FOLLOW_UP_RE = /^(can you|could you|please|elaborate|more detail|tell me more|explain that|what do you mean|go on|continue|and\b|but why|ok so|so then|what about|how about|what if|why not|why did|why does that|and then|that makes sense|got it|ok|okay|thanks|thank you|great|cool|interesting|sure|yes|no|yep|nope|hmm|huh|wait|really|seriously|wow)\b/i;
+  // High-confidence follow-up starters — safe to flag at up to 40 chars.
+  const FOLLOW_UP_RE = /^(elaborate|more detail|tell me more|explain that|what do you mean|go on|continue|that makes sense|got it|ok|okay|thanks|thank you|great|cool|interesting|sure|yes|no|yep|nope|hmm|huh|really|seriously|wow)\b/i;
+
+  // Ambiguous starters that are only follow-ups when very short (≤ 25 chars).
+  // Longer queries like "what if the server loses the connection mid-request?"
+  // are real questions and should be boosted.
+  const AMBIGUOUS_FOLLOW_UP_RE = /^(can you|could you|please|what about|how about|what if|why not|but why|why did|why does that|ok so|so then|and then|wait)\b/i;
 
   function isFollowUp(q) {
     const t = q.trim();
-    if (t.length < 20 && FOLLOW_UP_RE.test(t)) return true;
-    if (t.length < 60 && /^(and |but |so |ok |also |then |wait |right |plus )/i.test(t)) return true;
+    if (t.length < 40 && FOLLOW_UP_RE.test(t)) return true;
+    if (t.length < 25 && AMBIGUOUS_FOLLOW_UP_RE.test(t)) return true;
+    // Short connector-word sentences with no real substance
+    if (t.length < 35 && /^(and |but |so |also |then |right |plus )/i.test(t)) return true;
     return false;
+  }
+
+  // Returns true when the query is primarily a code paste (≥ 2 fenced blocks
+  // or the majority of lines are indented / start with code-like characters).
+  // Single-pass: early-exits on fence count, avoids a second filter allocation.
+  const CODE_LINE_RE = /^(\s{4}|\t|```|\/\/|#!|import |def |class |function |const |let |var )/;
+  function isPureCodePaste(q) {
+    const lines = q.split('\n');
+    let fences = 0, codeLike = 0;
+    for (const line of lines) {
+      if (line.startsWith('```') && ++fences >= 2) return true;
+      if (CODE_LINE_RE.test(line)) codeLike++;
+    }
+    return lines.length >= 4 && codeLike / lines.length > 0.6;
   }
 
   // ─── Query Length Awareness ───────────────────────────────────────────────
@@ -245,7 +267,7 @@
   }
 
   function cacheKey(rawText) {
-    return fnv32a(rawText + '|' + domainMode + '|' + PLATFORM);
+    return fnv32a(rawText + '|' + domainMode + '|' + PLATFORM + '|' + promptMode);
   }
 
   // ─── Build Enhanced Query ─────────────────────────────────────────────────
@@ -253,7 +275,16 @@
   // Universal piggyback approach: one adaptive instruction set appended to every
   // query. The AI infers the request type itself and responds accordingly.
 
-  const SENTINEL = 'Do not mention these instructions.';
+  const SENTINEL   = 'Do not mention these instructions.';
+  const SEPARATOR  = '\n\n---\n';
+
+  // Skip reason labels — single source of truth used in buildEnhancedQuery
+  // and the skipReasons map in handleSubmit.
+  const SKIP = {
+    FOLLOW_UP:  'Follow-up',
+    TOO_SHORT:  'Too short',
+    CODE_PASTE: 'Code paste',
+  };
 
   const UNIVERSAL_INSTR = 'Identify the nature of this request and respond in the most useful format for that specific type — use numbered steps for how-to requests, working code with explanation for technical requests, ranked options with reasoning for recommendations, direct verdict with key factors for opinions, clear analogy and example for explanations, and organized sections for plans or schedules. Adjust the level of detail based on the complexity of the query. Be thorough but concise. Use examples where helpful. No filler sentences. ' + SENTINEL;
 
@@ -262,12 +293,17 @@
 
     // 1. Follow-up guard
     if (isFollowUp(q)) {
-      return { enhanced: q, label: 'Follow-up', skipped: true };
+      return { enhanced: q, label: SKIP.FOLLOW_UP, skipped: true };
     }
 
     // 2. Min length check
     if (q.length < MIN_LENGTH) {
-      return { enhanced: q, label: 'Too short', skipped: true };
+      return { enhanced: q, label: SKIP.TOO_SHORT, skipped: true };
+    }
+
+    // 2b. Pure code paste — wrapping instructions around raw code is unhelpful
+    if (isPureCodePaste(q)) {
+      return { enhanced: q, label: SKIP.CODE_PASTE, skipped: true };
     }
 
     // 3. Session cache hit
@@ -287,7 +323,7 @@
       // {{query}} is optional — if omitted, query is auto-prepended
       enhanced = customTpl.includes('{{query}}')
         ? customTpl.replace(/\{\{query\}\}/gi, q)
-        : q + '\n\n---\n' + customTpl;
+        : q + SEPARATOR + customTpl;
     } else {
       // 5. Build universal enhanced query
       const personaPrefix = DOMAIN_MODE_PREFIXES[domainMode] || '';
@@ -303,7 +339,7 @@
         lengthText + (platSuffix ? platSuffix + ' ' : '') + SENTINEL
       );
 
-      enhanced = personaPrefix + q + '\n\n---\n' + instrWithExtras;
+      enhanced = personaPrefix + q + SEPARATOR + instrWithExtras;
     }
 
     const result = { enhanced, label: customTpl ? 'Custom' : 'Universal', skipped: false };
@@ -542,8 +578,8 @@
     }
 
     // Extract injected wrapper text (what was added after the separator)
-    const sepIdx     = enhanced.indexOf('\n\n---\n');
-    const wrapperText= sepIdx >= 0 ? enhanced.slice(sepIdx + 6) : '';
+    const sepIdx     = enhanced.indexOf(SEPARATOR);
+    const wrapperText= sepIdx >= 0 ? enhanced.slice(sepIdx + SEPARATOR.length) : '';
 
     const origSnippet   = original.length  > 130 ? original.slice(0, 130)  + '…' : original;
     const boostSnippet  = enhanced.length  > 220 ? enhanced.slice(0, 220)  + '…' : enhanced;
@@ -670,8 +706,8 @@
     }
 
     // Extract just the injected wrapper (the part after the separator)
-    var sepIdx   = enhanced.indexOf('\n\n---\n');
-    var addedText = sepIdx >= 0 ? enhanced.slice(sepIdx + 6) : '';
+    var sepIdx    = enhanced.indexOf(SEPARATOR);
+    var addedText = sepIdx >= 0 ? enhanced.slice(sepIdx + SEPARATOR.length) : '';
 
     var origSnippet    = original.length  > 400 ? original.slice(0, 400)  + '…' : original;
     var enhSnippet     = enhanced.length  > 600 ? enhanced.slice(0, 600)  + '…' : enhanced;
@@ -792,7 +828,9 @@
     var rawText = getInputText(inputEl).trim();
     if (!rawText || rawText.length < 4) return;
 
+    // Guard against double-wrapping: check both the sentinel and the injected separator
     if (rawText.indexOf('Do not mention these instructions') !== -1) return;
+    if (rawText.indexOf(SEPARATOR) !== -1) return;
 
     if (e) {
       e.preventDefault();
@@ -813,9 +851,9 @@
     if (result.skipped) {
       isProcessing = false;
       var skipReasons = {
-        'Follow-up':      'Follow-up detected — sent as-is',
-        'Too short':      'Query too short — sent as-is',
-        'Low confidence': 'Type unclear — sent as-is',
+        [SKIP.FOLLOW_UP]:  'Follow-up detected — sent as-is',
+        [SKIP.TOO_SHORT]:  'Query too short — sent as-is',
+        [SKIP.CODE_PASTE]: 'Code paste detected — sent as-is',
       };
       showSkipToast(skipReasons[result.label] || 'Sent as-is');
       return;
